@@ -54,7 +54,7 @@ return require('packer').startup(
         event = 'VimEnter',
         config = function() require "plugins/coq" end
     }
-    use {'ms-jpq/coq.artifacts', after = 'coq_nvim', branch = 'artifacts'}
+    use { 'ms-jpq/coq.artifacts', after = 'coq_nvim', branch = 'artifacts' }
 
     if packer_bootstrapped then
       require('packer').sync()

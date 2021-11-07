@@ -1,15 +1,23 @@
-default: link-configs
+default: install-zsh link-nvim-configs setup-git
 
-# TODO: this is currently experimental. Packer.nvim does NOT support headless
-#       package installation
-packer-setup:
-	nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
-	nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerInstall'
-	nvim --headless -c 'autocmd User COQdeps quitall'
+tag := chr0n1x/dev-env:latest
 
-link-configs:
-	-mkdir ~/.config
-	-ln -vs $(shell pwd)/nvim $(shell echo $$HOME)/.config/nvim
+build:
+	docker build --tag $(tag) .
+
+dev:
+	@echo "Building container for local dev if DNE"
+	@docker inspect $(tag) || $(MAKE) build
+	docker run --rm -ti \
+	  -v $(shell pwd):/workspace \
+	  -w /workspace \
+	  --entrypoint zsh $(tag)
+
+include make/*.mk
 
 clean:
-	rm -rf nvm/plugin ~/.local/share/nvim ~/.config/nvim ~/.cache/nvim
+	rm -rf nvm/plugin ~/.local/share/nvim ~/.config/nvim ~/.cache/nvim ~/.config/nvim ~/.config/zsh ~/.zshrc
+
+macos-install:
+	which brew /dev/null || /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+	brew install ag direnv git gh nvim z zsh

@@ -1,117 +1,46 @@
-NeoVim Template
-====
+dotfiles
+=========
 
-Don't know where to start with [NeoVim](https://neovim.io/)? Just want a quick-start template with bare-bones IDE functionality? Or just want to restart your Vim setup but with NeoVim?
+[![Build Status](https://api.travis-ci.com/chr0n1x/dev-env.svg?branch=main)](https://app.travis-ci.com/github/chr0n1x/dotfiles)
 
-Hopefully this makes your life easier!
+My Neovim and Zsh setups, wrapped into a docker container (automated build). Also includes other common dev tools such as [the silver searcher (aka: ag)](https://github.com/ggreer/the_silver_searcher). A full list is forthcoming since I'm still in the process of adding things to this project.
 
-This template provides a [packer.nvim](https://github.com/wbthomason/packer.nvim) setup with some bare-bones plugins and lua configurations, lightly organized so that it should be simple to see what's going on if you're new to NeoVim & Lua, but _just_ complex enough to showcase what's possible with the NeoVim LuaJIT runtime.
+I did this because I've had to switch machines WAY too many times. Another reason though is because I wanted a similar development experience between my MacOS, Linux & Windows machines so I figured that docker was the way to go.
+
+If you just want to run `vim` though I highly recommend that you take a look at [my NeoVim starter template](https://github.com/chr0n1x/neovim-template) to begin your NeoVim journey 🥳
 
 # Requirements
 
-Make sure that you have:
+NEOVIM. Just use Neovim, it'll save you a lot of configuration trouble.
 
-1. `python` installed, with a working installation of `pip` (e.g.: `apt install python py-pip`)
-2. NeoVim version `>= 0.5.1` (e.g.: `brew install neovim`)
+## Required Plugins
 
-MacOS users have it easy, you should just be able to use `brew` to install everything.
+Specific plugins require `python`. So make sure that you have `python` installed, along with `pip`
 
-For other users, you may have to compile `neovim` from source (as of writing this, WSL installations only have access to neovim v0.4.x).
+# Aliases
 
-# Usage
+I personally like to have two separate aliases, only one of which directly uses this container. The first is the `dex` alias (short for `docker exec`). I like to use this as a shortcut for:
 
-1. Click the `Use template` button to the top right 👆
-2. Clone down your new repo
-3. `cd` into your repo. Run `make` - this will symlink all files in your `home` directory to this repository.
-
-## Initial Startup
-
-Some plugins in this setup do not allow for setup & go. Specifically, `packer.nvim` does not support headless installation of plugins as of writing this.
-
-After `step 3` above you will have to open up `nvim` to allow things to install. Once you run `nvim` you will see this window:
-
-```
-               packer.nvim - finished in 2.007s                  │  1
- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │~
- ✓ Installed nvim-treesitter/nvim-treesitter                     │~
- ✓ Installed ms-jpq/coq_nvim/coq                                 │~
- ✓ Installed neovim/nvim-lspconfig                               │~
- ✓ Installed kabouzeid/nvim-lspinstall                           │~
- ✓ Installed ms-jpq/coq.artifacts/artifacts                      │~
- ✓ Installed airblade/vim-gitgutter                              │~
- ✓ Installed gregsexton/MatchTag                                 │~
- ✓ Installed jamestthompson3/nvim-remote-containers              │~
- ✓ Installed kien/ctrlp.vim                                      │~
- ✓ Installed pseewald/vim-anyfold                                │~
- ✓ Installed shaunsingh/nord.nvim                                │~
- ✓ Installed tpope/vim-fugitive                                  │~
- ✓ Installed tpope/vim-surround                                  │~
- ✓ Installed scrooloose/nerdtree                                 │~
- ✓ Installed Yggdroot/indentLine                                 │~
- ✓ Installed nvim-telescope/telescope.nvim                       │~
- ✓ Installed nvim-lua/plenary.nvim                               │~
- ✓ Installed kyazdani42/nvim-web-devicons                        │~
- ✓ Installed hoob3rt/lualine.nvim                                │~
-                                                                 │~
- Press 'q' to quit                                               │~
- Press '<CR>' to show more info                                  │~
- Press 'd' to show the diff                                      │~
- Press 'r' to revert an update                                   │~
-~                                                                │~
+```bash
+docker run -v $(pwd):/root/workspace --workdir /root/workspace --rm -ti "$@"
 ```
 
-That will run Packer.nvim and install all of the plugins. `:qa` after that completes.
+This allows me to mount my current working directory into `/root/workspace` for any arbitrary container. So for example if I am working on a python project and I'm in that project directory, I just use `dex python:3.6` and I am automatically dropped into a shell environment that has all development tools necessary to work on that project (e.g.: python runtime, `pip`, etc).
 
-Now re-open `nvim`. You will see this error message coming from `coq_nvim`:
+However, because my VIM installation is a bit more involved and needs tools that may be separate from whatever language I'm working in I have the `dvim` alias (short for `docker-vim`). This alias uses `dex` in conjunction with this container.
 
+## Bash / Zsh
+
+```bash
+function dex {
+  if docker version &> /dev/null; then
+    docker run -v $(pwd):/root/workspace --workdir /root/workspace --rm -ti "$@"
+  else
+    echo "Docker isn't installed or has not been started."
+  fi
+}
+
+function dvim {
+    dex --entrypoint "vim" chr0n1x/dev-env
+}
 ```
-Please update dependencies using :COQdeps
--
--
-Dependencies will be installed privately inside `/Users/....`
-`rm -rf coq_nvim` will cleanly remove everything
-Press ENTER or type command to continue
-```
-
-Hit `ESC` and then type in the commmand:
-
-```
-:COQdeps
-```
-
-That installs the python dependencies required for the auto-completion plugin, [`coq_vim`](https://github.com/ms-jpq/coq_nvim), to setup.
-
-When it's all done you should see the following message:
-
-```
-...
-Requirement already satisfied: pip in ./.vars/runtime/lib/python3.9/site-packages (21.2.4)
-Collecting pip
-...
-...
-...
-    Running setup.py install for pynvim-pp: started
-    Running setup.py install for pynvim-pp: finished with status 'done'
-Successfully installed PyYAML-5.4.1 greenlet-1.1.2 ...
----
-You can now use :COQnow
-```
-
-After all of that, everything should be set up! `:qa`, reopen and everything is ready for use.
-
-**If anything goes wrong, you should be able to just run `make nuke` and start over.**
-
-# Features / Plugins
-
-For a full list of features pre-baked, checkout the [`_plugins` file](nvim/lua/_plugins.lua).
-
-A few selling points though!
-
-1. `Leader` is mapped to `<Space>` - so for the next couple of shortcuts, you hit `Spacebar` for `<Leader>`
-1. `<Leader><Tab>` opens up Nerdtree
-1. `<Leader>p` opens up fuzzy-file search
-1. `<Leader>ff` opens up fuzzy-file search UI (via Telescope.nvim)
-1. `<Leader>fg` opens up a live-grep search UI (via Telescope.nvim)
-1. As stated above - `coq_vim` is installed (insanely fast auto-completion engine)
-
-For a full list of keyboard shortcuts, checkout [the keybindings file](nvim/lua/key-bindings.lua)
