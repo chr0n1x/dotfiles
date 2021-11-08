@@ -37,7 +37,6 @@ return require('packer').startup(
       after = 'coq_nvim',
       branch = 'artifacts'
     }
-
     use {
       "folke/zen-mode.nvim",
       config = function() require('plugins/zen-mode') end
@@ -68,8 +67,8 @@ return require('packer').startup(
     use 'tpope/vim-fugitive'
 
     -- misc awesome things
+    use 'arcticicestudio/nord-vim'
     use 'jamestthompson3/nvim-remote-containers'
-    use 'shaunsingh/nord.nvim'
     use {
         'hoob3rt/lualine.nvim',
         after = { 'nvim-web-devicons' },
@@ -79,7 +78,7 @@ return require('packer').startup(
 
     if packer_bootstrapped then
       require('packer').sync()
-      vim.api.nvim_command [[UpdateRemotePlugins<C-R>]]
+      vim.api.nvim_command [[UpdateRemotePlugins]]
     end
   end
 )

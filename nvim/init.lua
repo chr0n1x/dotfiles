@@ -1,5 +1,6 @@
 require('_plugins')
+
 require('autocmds')
-require('base-settings')
 require('colors')
+require('base-settings')
 require('key-bindings')
