@@ -1,7 +1,8 @@
 -- Auto install plugin manager
 
 local fn = vim.fn
-local install_path = fn.stdpath('data') .. '/site/pack/packer/start/packer.nvim'
+local install_path = fn.stdpath('data') ..
+  '/site/pack/packer/start/packer.nvim'
 if fn.empty(fn.glob(install_path)) > 0 then
   packer_bootstrapped = fn.system(
     {
@@ -15,38 +16,15 @@ end
 
 return require('packer').startup(
   function()
-    use 'airblade/vim-gitgutter'
-    use 'gregsexton/MatchTag'
-    use 'jamestthompson3/nvim-remote-containers'
-    use 'kien/ctrlp.vim'
-    use 'pseewald/vim-anyfold'
-    use 'shaunsingh/nord.nvim'
-    use 'tpope/vim-fugitive'
-    use 'tpope/vim-surround'
-    use 'scrooloose/nerdtree'
+    -- base requirements
     use 'wbthomason/packer.nvim'
+    use { 'kyazdani42/nvim-web-devicons', after = 'packer.nvim' }
+
+    -- editing super-chargers
+    use 'gregsexton/MatchTag'
+    use 'pseewald/vim-anyfold'
+    use 'tpope/vim-surround'
     use 'Yggdroot/indentLine'
-
-    use {
-      'nvim-telescope/telescope.nvim',
-      requires = { {'nvim-lua/plenary.nvim'} }
-    }
-
-    use {'kyazdani42/nvim-web-devicons', after = 'packer.nvim'}
-    use {
-        'hoob3rt/lualine.nvim',
-        after = 'nvim-web-devicons',
-        event = 'VimEnter',
-        config = function() require "plugins/lualine" end
-    }
-
-    use {
-        'nvim-treesitter/nvim-treesitter',
-        event = 'BufRead',
-        config = function() require "plugins/treesitter" end,
-        run = ':TSUpdate'
-    }
-
     use {
         'ms-jpq/coq_nvim',
         after = 'packer.nvim',
@@ -54,21 +32,54 @@ return require('packer').startup(
         event = 'VimEnter',
         config = function() require "plugins/coq" end
     }
-    use { 'ms-jpq/coq.artifacts', after = 'coq_nvim', branch = 'artifacts' }
+    use {
+      'ms-jpq/coq.artifacts',
+      after = 'coq_nvim',
+      branch = 'artifacts'
+    }
 
     use {
       "folke/zen-mode.nvim",
-      config = function()
-        require("zen-mode").setup {
-          -- your configuration comes here
-          -- or leave it empty to use the default settings
-          -- refer to the configuration section below
-        }
-      end
+      config = function() require('plugins/zen-mode') end
+    }
+    use {
+      'nvim-treesitter/nvim-treesitter',
+      run = ':TSUpdate',
+      config = function() require 'plugins/treesitter' end
+    }
+    use 'nvim-treesitter/playground'
+
+    -- finders, navigation
+    use 'kien/ctrlp.vim'
+    use 'scrooloose/nerdtree'
+    use {
+      'nvim-telescope/telescope.nvim',
+      requires = { {'nvim-lua/plenary.nvim'} }
+    }
+
+    -- git things
+    use 'airblade/vim-gitgutter'
+    use {
+      'lewis6991/gitsigns.nvim',
+      requires = {
+        'nvim-lua/plenary.nvim'
+      },
+    }
+    use 'tpope/vim-fugitive'
+
+    -- misc awesome things
+    use 'jamestthompson3/nvim-remote-containers'
+    use 'shaunsingh/nord.nvim'
+    use {
+        'hoob3rt/lualine.nvim',
+        after = { 'nvim-web-devicons' },
+        event = 'VimEnter',
+        config = function() require "plugins/lualine" end
     }
 
     if packer_bootstrapped then
       require('packer').sync()
+      vim.api.nvim_command [[UpdateRemotePlugins<C-R>]]
     end
   end
 )
