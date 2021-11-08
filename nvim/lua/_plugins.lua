@@ -56,6 +56,17 @@ return require('packer').startup(
     }
     use { 'ms-jpq/coq.artifacts', after = 'coq_nvim', branch = 'artifacts' }
 
+    use {
+      "folke/zen-mode.nvim",
+      config = function()
+        require("zen-mode").setup {
+          -- your configuration comes here
+          -- or leave it empty to use the default settings
+          -- refer to the configuration section below
+        }
+      end
+    }
+
     if packer_bootstrapped then
       require('packer').sync()
     end

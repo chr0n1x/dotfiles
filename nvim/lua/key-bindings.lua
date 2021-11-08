@@ -18,11 +18,17 @@ nmap('n', '<leader>n',       ':tabnext<CR>',                            {noremap
 nmap('n', '<leader>b',       ':tabprevious<CR>',                        {noremap = true})
 nmap('n', '<leader>o',       ':tabe<space>',                            {noremap = true})
 
--- misc
-nmap('n', '<leader><space>', ':noh <bar> e<CR>',                        {noremap = true})
+-- editor visuals & "ergonomics"
 nmap('n', '<leader>G',       ':GitGutterLineHighlightsToggle<CR>',      {noremap = true})
-nmap('n', '<leader>w',       ':w<CR>',                                  {noremap = true})
-nmap('n', '<leader>q',       ':q<CR>',                                  {noremap = true})
-nmap('n', '<leader>j',       ':%!python3 -m json.tool --sort-keys<CR>', {noremap = true})
+nmap('n', '<leader>z',       ':ZenMode<CR>',                            {noremap = true})
 nmap('n', '<leader>m',       ':set mouse=a<CR>',                        {noremap = true})
 nmap('n', '<leader>M',       ':set mouse=c<CR>',                        {noremap = true})
+
+-- misc 
+nmap('n', '<leader><space>', ':noh <bar> e<CR>',                        {noremap = true})
+nmap('n', '<leader>w',       ':w<CR>',                                  {noremap = true})
+nmap('n', '<leader>q',       ':q<CR>',                                  {noremap = true})
+
+-- utility scripts
+-- pretty-format JSON in the current buffer/file
+nmap('n', '<leader>j',       ':%!python3 -m json.tool --sort-keys<CR>', {noremap = true})
