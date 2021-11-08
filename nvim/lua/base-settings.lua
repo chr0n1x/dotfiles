@@ -39,7 +39,6 @@ opts.regexpengine   = 1
 opts.shiftwidth     = 2
 opts.softtabstop    = 2
 opts.scrolloff      = 3
-opts.statusline     = '%< %n:%f %m%r%y%=%-35.(line: %l of %L, col: %c%V (%P)%)'
 opts.syntax         = 'on'
 opts.tabstop        = 4
 opts.wildignore     = '*/tmp/*,*.so,*.swp,*.zip,*/node_modules/*'
