@@ -67,7 +67,14 @@ return require('packer').startup(
     use 'tpope/vim-fugitive'
 
     -- misc awesome things
-    use 'arcticicestudio/nord-vim'
+    use {
+      'kunzaatko/nord.nvim',
+      requires = { 'rktjmp/lush.nvim' },
+      -- hack - https://github.com/kunzaatko/nord.nvim/issues/5
+      config = function() vim.cmd("colorscheme nord") end,
+      after = { 'lush.nvim' },
+      cond = true
+    }
     use 'jamestthompson3/nvim-remote-containers'
     use {
         'hoob3rt/lualine.nvim',
