@@ -49,8 +49,7 @@ return require('packer').startup(
     use 'nvim-treesitter/playground'
 
     -- finders, navigation
-    use 'kien/ctrlp.vim'
-    use 'scrooloose/nerdtree'
+    use { 'ms-jpq/chadtree' }
     use {
       'nvim-telescope/telescope.nvim',
       requires = { {'nvim-lua/plenary.nvim'} }

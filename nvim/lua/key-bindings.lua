@@ -8,10 +8,9 @@ vim.g.mapleader = ' '
 nmap('n', '<leader>s',       ':/<C-r><C-w>/<CR>',                       {noremap = true})
 
 -- directory/tree navigation
-nmap('n', '<leader>p',       ':CtrlP<CR>',                              {noremap = true})
-nmap('n', '<leader><tab>',   ':NERDTreeToggle<CR>',                     {noremap = true})
-nmap('n', '<leader>ff',      ':Telescope find_files<CR>',               {noremap = true})
-nmap('n', '<leader>fg',      ':Telescope live_grep<CR>',                {noremap = true})
+nmap('n', '<leader><tab>',   ':CHADopen<CR>',                           {noremap = true})
+nmap('n', '<leader>p',      ':Telescope find_files<CR>',                {noremap = true})
+nmap('n', '<leader>g',      ':Telescope live_grep<CR>',                 {noremap = true})
 
 -- tab navigation
 nmap('n', '<leader>n',       ':tabnext<CR>',                            {noremap = true})

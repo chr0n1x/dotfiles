@@ -19,3 +19,5 @@ autoload -Uz compinit && compinit
 for script in $(ls ~/.config/zsh/scripts); do
   source ~/.config/zsh/scripts/$script
 done
+
+export PATH="/Users/kran/.local/bin:$PATH"
