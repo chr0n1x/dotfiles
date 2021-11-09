@@ -21,10 +21,15 @@ return require('packer').startup(
     use { 'kyazdani42/nvim-web-devicons', after = 'packer.nvim' }
 
     -- editing super-chargers
+    use {
+      "AckslD/nvim-neoclip.lua",
+      config = function() require('neoclip').setup() end
+    }
+    use {
+      "folke/zen-mode.nvim",
+      config = function() require('plugins/zen-mode') end
+    }
     use 'gregsexton/MatchTag'
-    use 'pseewald/vim-anyfold'
-    use 'tpope/vim-surround'
-    use 'Yggdroot/indentLine'
     use {
         'ms-jpq/coq_nvim',
         after = 'packer.nvim',
@@ -38,15 +43,14 @@ return require('packer').startup(
       branch = 'artifacts'
     }
     use {
-      "folke/zen-mode.nvim",
-      config = function() require('plugins/zen-mode') end
-    }
-    use {
       'nvim-treesitter/nvim-treesitter',
       run = ':TSUpdate',
       config = function() require 'plugins/treesitter' end
     }
     use 'nvim-treesitter/playground'
+    use 'pseewald/vim-anyfold'
+    use 'tpope/vim-surround'
+    use 'Yggdroot/indentLine'
 
     -- finders, navigation
     use { 'ms-jpq/chadtree' }
@@ -66,6 +70,13 @@ return require('packer').startup(
     use 'tpope/vim-fugitive'
 
     -- misc awesome things
+    use 'jamestthompson3/nvim-remote-containers'
+    use {
+      'hoob3rt/lualine.nvim',
+      after = { 'nvim-web-devicons' },
+      event = 'VimEnter',
+      config = function() require "plugins/lualine" end
+    }
     use {
       'kunzaatko/nord.nvim',
       requires = { 'rktjmp/lush.nvim' },
@@ -73,13 +84,6 @@ return require('packer').startup(
       config = function() vim.cmd("colorscheme nord") end,
       after = { 'lush.nvim' },
       cond = true
-    }
-    use 'jamestthompson3/nvim-remote-containers'
-    use {
-        'hoob3rt/lualine.nvim',
-        after = { 'nvim-web-devicons' },
-        event = 'VimEnter',
-        config = function() require "plugins/lualine" end
     }
 
     if packer_bootstrapped then
