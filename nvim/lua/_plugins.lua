@@ -77,14 +77,7 @@ return require('packer').startup(
       event = 'VimEnter',
       config = function() require "plugins/lualine" end
     }
-    use {
-      'kunzaatko/nord.nvim',
-      requires = { 'rktjmp/lush.nvim' },
-      -- hack - https://github.com/kunzaatko/nord.nvim/issues/5
-      config = function() vim.cmd("colorscheme nord") end,
-      after = { 'lush.nvim' },
-      cond = true
-    }
+    use 'shaunsingh/nord.nvim'
 
     if packer_bootstrapped then
       require('packer').sync()
