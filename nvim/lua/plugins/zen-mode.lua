@@ -2,7 +2,7 @@ require("zen-mode").setup(
   {
     window = {
       backdrop = 0.80,
-      width = 80,
+      width = 120,
       height = 0.80
     },
 
