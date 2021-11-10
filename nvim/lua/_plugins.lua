@@ -81,6 +81,7 @@ return require('packer').startup(
 
     if packer_bootstrapped then
       require('packer').sync()
+      -- I have no idea if this actually works
       vim.api.nvim_command [[UpdateRemotePlugins]]
     end
   end
