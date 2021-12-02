@@ -58,6 +58,14 @@ return require('packer').startup(
       'nvim-telescope/telescope.nvim',
       requires = { {'nvim-lua/plenary.nvim'} }
     }
+    use {
+      'rcarriga/nvim-notify',
+      requires = { {'nvim-telescope/telescope.nvim'} },
+      config = function()
+        require('telescope').load_extension('notify')
+        require 'notify'.setup()
+      end
+    }
 
     -- git things
     use 'airblade/vim-gitgutter'
@@ -73,7 +81,7 @@ return require('packer').startup(
     use 'jamestthompson3/nvim-remote-containers'
     use {
       'hoob3rt/lualine.nvim',
-      after = { 'nvim-web-devicons' },
+      after = 'nvim-web-devicons',
       event = 'VimEnter',
       config = function() require "plugins/lualine" end
     }
