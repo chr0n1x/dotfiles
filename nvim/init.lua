@@ -3,6 +3,7 @@ require('_plugins')
 require('autocmds')
 require('colors')
 require('base-settings')
+require('functions')
 require('key-bindings')
 
 -- called with no other arguments (i.e.: command was just `nvim`)
