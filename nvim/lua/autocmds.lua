@@ -1,6 +1,1 @@
-vim.api.nvim_exec(
-  [[
-    if exists(":AnyFoldActivate") | autocmd Filetype * AnyFoldActivate | endif
-  ]],
-  false
-)
+vim.cmd [[au VimEnter * AnyFoldActivate]]
