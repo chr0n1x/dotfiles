@@ -21,7 +21,7 @@ nmap('n', '<leader>o',       ':tabe<space>',                                    
 
 -- editor visuals & "ergonomics"
 nmap('n', '<leader>G',       ':GitGutterLineHighlightsToggle<CR>',              {noremap = true})
-nmap('n', '<leader>z',       ':ZenMode<CR>',                                    {noremap = true})
+nmap('n', '<leader>z',       ':ZenMode | Twilight!!<CR>',                       {noremap = true})
 nmap('n', '<leader>m',       ':set mouse=a<CR>',                                {noremap = true})
 nmap('n', '<leader>M',       ':set mouse=c<CR>',                                {noremap = true})
 
