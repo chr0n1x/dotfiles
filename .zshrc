@@ -1,16 +1,15 @@
 export ZSH="$HOME/.oh-my-zsh"
 export ZSH_THEME="gallifrey"
 export VI_MODE_SET_CURSOR=true
-
 plugins=(
   ag
   direnv
   docker
   docker-compose
+  fzf
   git
   vi-mode
 )
-
 source $ZSH/oh-my-zsh.sh
 
 autoload -Uz compinit && compinit
@@ -21,3 +20,8 @@ for script in $(ls ~/.config/zsh/scripts); do
 done
 
 export PATH="/Users/kran/.local/bin:$PATH"
+
+# Secretive Config
+export SSH_AUTH_SOCK=$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

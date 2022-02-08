@@ -2,7 +2,7 @@ local opts = vim.opt
 
 -- base vim config - bools
 opts.autoread      = true
-opts.autoindent    = true
+opts.autoindent    = false
 opts.cursorline    = true
 opts.expandtab     = true
 opts.gdefault      = true
