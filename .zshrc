@@ -19,9 +19,4 @@ for script in $(ls ~/.config/zsh/scripts); do
   source ~/.config/zsh/scripts/$script
 done
 
-export PATH="/Users/kran/.local/bin:$PATH"
-
-# Secretive Config
-export SSH_AUTH_SOCK=$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh
-
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+export PATH="$HOME/.local/bin:$PATH"

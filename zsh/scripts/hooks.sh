@@ -26,3 +26,8 @@ if command -v z >/dev/null 2>&1; then
     source $(which z)
   fi
 fi
+
+# Secretive Config
+export SSH_AUTH_SOCK=$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

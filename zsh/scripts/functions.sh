@@ -9,3 +9,15 @@ function dex {
 function dvim {
     dex --entrypoint "nvim" chr0n1x/dev-env
 }
+
+function dk8s {
+  dex --hostname docker-k8s-dev \
+      -e AWS_SECRET_ACCESS_KEY \
+      -e AWS_SESSION_TOKEN \
+      -e AWS_SECURITY_TOKEN \
+      -e AWS_ACCESS_KEY_ID \
+      -e AWS_DEFAULT_REGION \
+      -e AWS_SDK_LOAD_CONFIG \
+      docker-ethos-release.dr-uw2.adobeitc.com/adobe-platform/k8s-toolbox:latest
+
+}
