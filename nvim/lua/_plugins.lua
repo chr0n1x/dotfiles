@@ -54,6 +54,10 @@ return require('packer').startup(
         run = ':TSUpdate',
         config = function() require 'plugins/treesitter' end
       }
+      use {
+        'RRethy/nvim-treesitter-endwise',
+        requires = { { 'nvim-treesitter/nvim-treesitter' } },
+      }
       use 'nvim-treesitter/playground'
       use 'pseewald/vim-anyfold'
       use 'tpope/vim-surround'
@@ -103,6 +107,10 @@ return require('packer').startup(
         require('packer').sync()
         -- I have no idea if this actually works
         vim.api.nvim_command [[UpdateRemotePlugins]]
+
+        require('nvim-treesitter.configs').setup {
+            endwise = { enable = true }
+        }
       end
     end
   }
