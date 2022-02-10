@@ -20,5 +20,5 @@ clean:
 
 macos-install:
 	which brew /dev/null || /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree
+	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree fd
 	pip3 install virtualenv
