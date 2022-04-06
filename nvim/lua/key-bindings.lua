@@ -6,6 +6,7 @@ vim.g.mapleader = ' '
 
 -- buffer navigation
 nmap('n', '<leader>s',       ':/<C-r><C-w>/<CR>',                               {noremap = true})
+nmap('n', 'f',               ':HopWord<CR>',                                    {noremap = true})
 
 -- directory/tree navigation
 nmap('n', '<leader><tab>',   ':CHADopen<CR>',                                   {noremap = true})
