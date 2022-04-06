@@ -12,6 +12,7 @@ function dvim {
 
 function dk8s {
   dex --hostname docker-k8s-dev \
+      --network host \
       -e AWS_SECRET_ACCESS_KEY \
       -e AWS_SESSION_TOKEN \
       -e AWS_SECURITY_TOKEN \
