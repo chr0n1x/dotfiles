@@ -8,6 +8,7 @@ plugins=(
   docker-compose
   fzf
   git
+  kubectl
   vi-mode
 )
 source $ZSH/oh-my-zsh.sh
