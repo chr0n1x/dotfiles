@@ -29,14 +29,9 @@ return require('packer').startup(
 
       -- editing super-chargers
       use {
-        "AckslD/nvim-neoclip.lua",
-        config = function() require('neoclip').setup() end
-      }
-      use {
         "folke/zen-mode.nvim",
         config = function() require('plugins/zen-mode') end
       }
-      use 'gregsexton/MatchTag'
       use {
           'ms-jpq/coq_nvim',
           after = 'packer.nvim',
@@ -54,13 +49,8 @@ return require('packer').startup(
         run = ':TSUpdate',
         config = function() require 'plugins/treesitter' end
       }
-      use {
-        'RRethy/nvim-treesitter-endwise',
-        requires = { { 'nvim-treesitter/nvim-treesitter' } },
-      }
       use 'nvim-treesitter/playground'
       use 'pseewald/vim-anyfold'
-      use 'tpope/vim-surround'
       use 'Yggdroot/indentLine'
       use {
         "folke/twilight.nvim",
@@ -73,14 +63,6 @@ return require('packer').startup(
         'nvim-telescope/telescope.nvim',
         requires = { {'nvim-lua/plenary.nvim'} }
       }
-      use {
-        'rcarriga/nvim-notify',
-        requires = { {'nvim-telescope/telescope.nvim'} },
-        config = function()
-          require('telescope').load_extension('notify')
-          require 'notify'.setup()
-        end
-      }
       use {'stevearc/dressing.nvim'}
       use {
         'phaazon/hop.nvim',
@@ -92,7 +74,6 @@ return require('packer').startup(
       }
 
       -- git things
-      use 'airblade/vim-gitgutter'
       use {
         'lewis6991/gitsigns.nvim',
         requires = {
@@ -102,7 +83,6 @@ return require('packer').startup(
       use 'tpope/vim-fugitive'
 
       -- misc awesome things
-      use 'jamestthompson3/nvim-remote-containers'
       use {
         'hoob3rt/lualine.nvim',
         after = 'nvim-web-devicons',

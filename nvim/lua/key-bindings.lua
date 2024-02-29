@@ -13,7 +13,6 @@ nmap('n', '<leader><tab>',   ':CHADopen<CR>',                                   
 nmap('n', '<leader>f',      ':lua require"telescope.builtin".treesitter{}<CR>', {noremap = true})
 nmap('n', '<leader>p',      ':Telescope find_files<CR>',                        {noremap = true})
 nmap('n', '<leader>g',      ':Telescope live_grep<CR>',                         {noremap = true})
-nmap('n', '<leader>y',      ':Telescope neoclip a<CR>',                         {noremap = true})
 
 -- tab navigation
 nmap('n', '<leader>n',       ':tabnext<CR>',                                    {noremap = true})
@@ -21,14 +20,13 @@ nmap('n', '<leader>b',       ':tabprevious<CR>',                                
 nmap('n', '<leader>o',       ':tabe<space>',                                    {noremap = true})
 
 -- editor visuals & "ergonomics"
-nmap('n', '<leader>G',       ':GitGutterLineHighlightsToggle<CR>',              {noremap = true})
 nmap('n', '<leader>z',       ':ZenMode | Twilight!!<CR>',                       {noremap = true})
 nmap('n', '<leader>m',       ':set mouse=a<CR>',                                {noremap = true})
 nmap('n', '<leader>M',       ':set mouse=c<CR>',                                {noremap = true})
 
 -- misc 
-nmap('n', '<leader><space>', ':noh <bar> e<CR>',                                {noremap = true})
 nmap('n', '<leader>w',       ':w<CR>',                                          {noremap = true})
+nmap('n', '<leader><space>', ':noh <bar> e<CR>',                                {noremap = true})
 nmap('n', '<leader>q',       ':q<CR>',                                          {noremap = true})
 
 -- utility scripts
