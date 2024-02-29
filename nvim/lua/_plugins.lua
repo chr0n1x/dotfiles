@@ -1,5 +1,4 @@
--- Auto install plugin manager
-
+-- Auto install plugin
 local fn = vim.fn
 local install_path = fn.stdpath('data') ..
   '/site/pack/packer/start/packer.nvim'
@@ -33,7 +32,6 @@ return require('packer').startup(function(use)
       'ms-jpq/coq_nvim',
       after = 'packer.nvim',
       branch = 'coq',
-      event = 'VimEnter',
       config = function() require 'plugins/coq' end
   }
   use {
@@ -72,26 +70,26 @@ return require('packer').startup(function(use)
 
   -- copy-pasta from https://github.com/ThePrimeagen/init.lua/blob/master/lua/theprimeagen/packer.lua
   use {
-      'VonHeikemen/lsp-zero.nvim',
-      branch = 'v1.x',
-      requires = {
-          -- LSP Support
-          {'neovim/nvim-lspconfig'},
-          {'williamboman/mason.nvim'},
-          {'williamboman/mason-lspconfig.nvim'},
+    'VonHeikemen/lsp-zero.nvim',
+    branch = 'v1.x',
+    requires = {
+        -- LSP Support
+        {'neovim/nvim-lspconfig'},
+        {'williamboman/mason.nvim'},
+        {'williamboman/mason-lspconfig.nvim'},
 
-          -- Autocompletion
-          {'hrsh7th/nvim-cmp'},
-          {'hrsh7th/cmp-buffer'},
-          {'hrsh7th/cmp-path'},
-          {'saadparwaiz1/cmp_luasnip'},
-          {'hrsh7th/cmp-nvim-lsp'},
-          {'hrsh7th/cmp-nvim-lua'},
+        -- Autocompletion
+        {'hrsh7th/nvim-cmp'},
+        {'hrsh7th/cmp-buffer'},
+        {'hrsh7th/cmp-path'},
+        {'saadparwaiz1/cmp_luasnip'},
+        {'hrsh7th/cmp-nvim-lsp'},
+        {'hrsh7th/cmp-nvim-lua'},
 
-          -- Snippets
-          {'L3MON4D3/LuaSnip'},
-          {'rafamadriz/friendly-snippets'},
-      }
+        -- Snippets
+        {'L3MON4D3/LuaSnip'},
+        {'rafamadriz/friendly-snippets'},
+    }
   }
 
   -- git things
@@ -105,10 +103,10 @@ return require('packer').startup(function(use)
   use {
     'hoob3rt/lualine.nvim',
     after = 'nvim-web-devicons',
-    event = 'VimEnter',
     config = function() require 'plugins/lualine' end
   }
   use 'shaunsingh/nord.nvim'
+  use "eandrju/cellular-automaton.nvim"
 
   if packer_bootstrapped then
     require('packer').sync()

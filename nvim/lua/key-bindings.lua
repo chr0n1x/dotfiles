@@ -32,3 +32,6 @@ nmap('n', '<leader>q',       ':q<CR>',                                          
 -- utility scripts
 -- pretty-format JSON in the current buffer/file
 nmap('n', '<leader>j',       ':%!python3 -m json.tool --sort-keys<CR>',         {noremap = true})
+
+-- DEADGE
+nmap('n', '<leader>F',       ':CellularAutomaton make_it_rain<CR>',             {noremap = true})
