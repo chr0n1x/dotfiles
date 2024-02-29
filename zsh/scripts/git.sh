@@ -6,6 +6,16 @@
 alias gp="git pull --rebase"
 alias gs="git status"
 
+unalias gl # AHHHHHHHHHHHHHHHHHHHH
+function gl() {
+  numLogs=8
+  if [[ ! -z "$@" ]]; then
+    numLogs="$@"
+  fi
+
+  git log -n "${numLogs}"
+}
+
 unalias gr # AHHHHHHHHHHHHHHHHHHHH
 function gr() {
   expectedRemoteName="upstream"
