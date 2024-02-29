@@ -38,6 +38,7 @@ opts.shiftwidth     = 2
 opts.softtabstop    = 2
 opts.scrolloff      = 3
 opts.syntax         = 'on'
+opts.re             = 0
 opts.tabstop        = 4
 opts.wildignore     = '*/tmp/*,*.so,*.swp,*.zip,*/node_modules/*'
 opts.wildmode       = 'list:longest'
