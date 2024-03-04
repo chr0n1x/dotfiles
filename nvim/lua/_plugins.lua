@@ -60,8 +60,8 @@ return require('packer').startup(function(use)
   }
   use {'stevearc/dressing.nvim'}
   use {
-    'phaazon/hop.nvim',
-    branch = 'v1',
+    'smoka7/hop.nvim',
+    branch = 'v2.5.1',
     config = function()
       -- you can configure Hop the way you like here; see :h hop-config
       require'hop'.setup { keys = 'etovxqpdygfblzhckisuran' }
