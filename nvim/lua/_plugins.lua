@@ -60,11 +60,9 @@ return require('packer').startup(function(use)
   }
   use {'stevearc/dressing.nvim'}
   use {
-    'smoka7/hop.nvim',
-    branch = 'v2.5.1',
+    'ggandor/leap.nvim',
     config = function()
-      -- you can configure Hop the way you like here; see :h hop-config
-      require'hop'.setup { keys = 'etovxqpdygfblzhckisuran' }
+      require('leap').create_default_mappings()
     end
   }
 
