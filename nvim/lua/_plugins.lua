@@ -61,9 +61,7 @@ return require('packer').startup(function(use)
   use {'stevearc/dressing.nvim'}
   use {
     'ggandor/leap.nvim',
-    config = function()
-      require('leap').create_default_mappings()
-    end
+    config = function() require 'plugins/leap' end
   }
 
   -- copy-pasta from https://github.com/ThePrimeagen/init.lua/blob/master/lua/theprimeagen/packer.lua
