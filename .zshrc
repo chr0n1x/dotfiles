@@ -10,6 +10,7 @@ plugins=(
   git
   kubectl
   vi-mode
+  z
 )
 source $ZSH/oh-my-zsh.sh
 
