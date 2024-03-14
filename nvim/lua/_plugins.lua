@@ -102,7 +102,11 @@ return require('packer').startup(function(use)
     config = function() require 'plugins/lualine' end
   }
   use 'shaunsingh/nord.nvim'
-  use "eandrju/cellular-automaton.nvim"
+  use 'eandrju/cellular-automaton.nvim'
+  use {
+      "karb94/neoscroll.nvim",
+      config = function() require 'plugins/neoscroll' end
+  }
 
   if packer_bootstrapped then
     require('packer').sync()
