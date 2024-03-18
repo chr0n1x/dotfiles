@@ -5,7 +5,9 @@ vim.g.mapleader = ' '
 -- Note that some of these require plugins
 
 -- buffer navigation
-nmap('n', '<leader>s',       ':/<C-r><C-w>/<CR>',                               {noremap = true})
+nmap('n', '<leader>s',       ':/<C-r><C-w>/<CR>',                                                 {noremap = true})
+nmap('n', '<leader>j',       ':lua require("neoscroll").scroll("0.25", "true", "250", nil)<CR>',  {noremap = true})
+nmap('n', '<leader>k',       ':lua require("neoscroll").scroll("-0.25", "true", "250", nil)<CR>', {noremap = true})
 
 -- directory/tree navigation
 nmap('n', '<leader><tab>',   ':CHADopen<CR>',                                   {noremap = true})
@@ -30,7 +32,7 @@ nmap('n', '<leader>q',       ':q<CR>',                                          
 
 -- utility scripts
 -- pretty-format JSON in the current buffer/file
-nmap('n', '<leader>j',       ':%!python3 -m json.tool --sort-keys<CR>',         {noremap = true})
+nmap('n', '<leader>J',       ':%!python3 -m json.tool --sort-keys<CR>',         {noremap = true})
 
 -- DEADGE
 nmap('n', '<leader>F',       ':CellularAutomaton make_it_rain<CR>',             {noremap = true})
