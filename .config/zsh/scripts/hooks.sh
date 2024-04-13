@@ -18,14 +18,7 @@ if command -v direnv >/dev/null 2>&1; then
   eval "$(direnv hook ${SHELL})"
 fi
 
-# ohmyzsh sets up an alias...
-if command -v z >/dev/null 2>&1; then
-  if command -v _z > /dev/null 2>&1; then
-    which _z | zsh
-  else
-    source $(which z)
-  fi
-fi
+eval "$(zoxide init zsh)"
 
 # Secretive Config
 export SSH_AUTH_SOCK=$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh
