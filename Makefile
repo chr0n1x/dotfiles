@@ -1,4 +1,4 @@
-default: install-zsh link-nvim-configs setup-git
+default: stow install-zsh link-nvim-configs setup-git
 
 tag := chr0n1x/dev-env:latest
 
@@ -13,6 +13,10 @@ dev:
 	  -w /workspace \
 	  --entrypoint zsh $(tag)
 
+# assume that stow is already installed (check the macos-install target below)
+stow:
+	stow -d $(shell pwd) -t ~/ .
+
 include make/*.mk
 
 clean:
@@ -20,7 +24,7 @@ clean:
 
 macos-install:
 	which brew /dev/null || /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree fd
+	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree fd stow
 	pip3 install virtualenv
 
 # TODO: clean this up, adding here for reference later

@@ -11,12 +11,4 @@ install-omzsh:
 	  "" --unattended
 	-rm ~/.zshrc
 
-link-profiles:
-	if [ -f ~/.zshrc ]; then mv ~/.zshrc ~/.zshrc.BAK; fi
-	-ln -vs $(shell pwd)/.zshrc $(shell echo $$HOME)/.zshrc
-	mkdir -p ~/.config
-	-ln -vs $(shell pwd)/zsh $(shell echo $$HOME)/.config/zsh
-	@echo "Installed - you can now run the following:"
-	@echo "    source ~/.zshrc"
-
-install-zsh: install-nord install-omzsh link-profiles
+install-zsh: install-nord install-omzsh

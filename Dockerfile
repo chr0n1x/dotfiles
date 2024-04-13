@@ -12,7 +12,7 @@ FROM alpine:edge AS devenv
 
 RUN apk update && \
     apk add make zsh neovim git coreutils curl \
-            python3 py-pip alpine-sdk python3-dev pcre-dev ripgrep && \
+            python3 py-pip alpine-sdk python3-dev pcre-dev ripgrep stow && \
     sed -i 's/ash/zsh/g' /etc/passwd && \
     pip install pynvim neovim virtualenv
 
