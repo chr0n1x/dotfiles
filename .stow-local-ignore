@@ -18,6 +18,7 @@ _darcs
 
 \.git
 \.gitignore
+\.gitmodules
 
 \.DS_Store
 

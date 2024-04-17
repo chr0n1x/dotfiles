@@ -15,6 +15,7 @@ dev:
 
 # assume that stow is already installed (check the macos-install target below)
 stow:
+	git submodule update --init
 	stow -d $(shell pwd) -t ~/ .
 
 include make/*.mk
