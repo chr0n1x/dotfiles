@@ -21,3 +21,11 @@ for script in $(ls ~/.config/zsh/scripts); do
 done
 
 export PATH="$HOME/.local/bin:$PATH"
+
+if [ "$TMUX" = "" ]; then
+  if ! tmux ls &> /dev/null; then
+    tmux
+  else
+    tmux attach-session
+  fi
+fi
