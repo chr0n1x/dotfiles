@@ -1,3 +1,4 @@
+# if on linux do "make linux" first before this
 default: install-zsh setup-git stow
 
 tag := chr0n1x/dev-env:latest
