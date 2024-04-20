@@ -35,6 +35,7 @@ linux:
 	mkdir -p ~/.local/opt
 	tar -C ~/.local/opt -xzf nvim-linux64.tar.gz
 	mkdir -p ~/.local/bin
-	ln -vs ~/.local/bin/nvim-linux64/bin/nvim ~/.local/bin/nvim
+	ln -vs ~/.local/opt/nvim-linux64/bin/nvim ~/.local/bin/nvim
 	rm nvim-linux64.tar.gz
+	# If this fails run it as sudo
 	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide
