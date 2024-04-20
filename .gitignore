@@ -2,3 +2,4 @@ nvim/plugin/
 .nvimlog
 *.swp
 .nvimlog
+.config/tmux/plugins/
