@@ -1,8 +1,8 @@
 install-nord:
 	-git clone \
 	  https://github.com/arcticicestudio/nord-dircolors.git \
-	  ~/Code/arcticicestudio/nord-dircolors
-	-ln -vs "~/Code/arcticicestudio/nord-dir_colors/src/dir_colors" ~/.dir_colors
+	  $(shell echo $$HOME)/Code/arcticicestudio/nord-dircolors
+	-ln -vs "$(shell echo $$HOME)/Code/arcticicestudio/nord-dircolors/src/dir_colors" ~/.dir_colors
 
 # https://github.com/ohmyzsh/ohmyzsh#unattended-install
 install-omzsh:
