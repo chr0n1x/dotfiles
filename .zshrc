@@ -4,8 +4,6 @@ export VI_MODE_SET_CURSOR=true
 plugins=(
   ag
   direnv
-  docker
-  docker-compose
   fzf
   git
   kubectl
