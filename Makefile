@@ -26,7 +26,7 @@ clean:
 
 macos-install:
 	which brew /dev/null || /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree fd stow zoxide
+	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree fd stow zoxide tmux
 	pip3 install virtualenv
 
 # TODO: clean this up, adding here for reference later
@@ -39,4 +39,4 @@ linux:
 	ln -vs ~/.local/opt/nvim-linux64/bin/nvim ~/.local/bin/nvim
 	rm nvim-linux64.tar.gz
 	# If this fails run it as sudo
-	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide
+	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
