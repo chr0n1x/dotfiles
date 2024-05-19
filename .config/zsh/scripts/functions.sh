@@ -14,3 +14,38 @@ function k8s-shell {
     kubectl run "$@-test-shell" --rm -i --tty --image ubuntu -- /bin/bash
     kubectl delete pod "$@-test-shell"
 }
+
+function greptmzf {
+    fileList=""
+
+    # lol there has to be a better way, im just dumb
+    for pane in $(tmux list-panes -s | cut -d: -f1);
+    do
+      cachefile=/tmp/tmux-fzf-${pane}-txt
+      fileList="$fileList $cachefile"
+      # max scrollback should probably be fetched from tmux config
+      tmux capture-pane -pS -10000 -t $pane > $cachefile
+    done
+
+    matchingPanes=$( \
+      grep -R \
+      "$(find /tmp/tmux-fzf-*-txt -type f -exec cat {} \; | fzf)" \
+      /tmp/tmux-fzf-*-txt \
+      | cut -d: -f1 | sort | uniq \
+    )
+    rm /tmp/tmux-fzf-*-txt
+
+    if [ "$(echo $matchingPanes | wc -l)" != 1 ]; then
+      echo "multilple or no matches in panes:"
+      for file in $matchingPanes; do
+        echo $file | cut -d- -f3
+      done
+      exit 1
+    fi
+
+    paneName=$(echo $matchingPanes | cut -d- -f3)
+    paneID=$(tmux list-panes -s | grep "$paneName\:" | awk '{ print $7 }')
+    cmd="tmux swap-window -s $(echo $paneName | cut -d. -f1) -t $(echo $paneName | cut -d. -f2)"
+    echo $cmd
+    eval $cmd
+}
