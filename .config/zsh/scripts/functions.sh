@@ -43,7 +43,7 @@ function fzmux {
 
     echo "Found matches in: $matchingPanes"
     if [ "$(echo $matchingPanes | wc -l)" != 1 ]; then
-      echo "multilple or no matches in panes:"
+      echo "multiple or no matches in panes:"
       for file in $matchingPanes; do
         echo $file | cut -d- -f3
       done
