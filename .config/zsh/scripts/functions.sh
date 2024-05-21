@@ -35,6 +35,12 @@ function fzmux {
     )
     rm /tmp/tmux-fzf-*-txt
 
+    # not sure what is happening in this case
+    if [ -z "$matchingPanes" ]; then
+      echo "Could not find pane to swap to"
+      exit 0
+    fi
+
     echo "Found matches in: $matchingPanes"
     if [ "$(echo $matchingPanes | wc -l)" != 1 ]; then
       echo "multilple or no matches in panes:"
