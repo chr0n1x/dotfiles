@@ -15,7 +15,7 @@ function k8s-shell {
     kubectl delete pod "$@-test-shell"
 }
 
-function greptmzf {
+function fzmux {
     fileList=""
 
     # lol there has to be a better way, im just dumb
@@ -35,6 +35,7 @@ function greptmzf {
     )
     rm /tmp/tmux-fzf-*-txt
 
+    echo "Found matches in: $matchingPanes"
     if [ "$(echo $matchingPanes | wc -l)" != 1 ]; then
       echo "multilple or no matches in panes:"
       for file in $matchingPanes; do
@@ -45,7 +46,7 @@ function greptmzf {
 
     paneName=$(echo $matchingPanes | cut -d- -f3)
     paneID=$(tmux list-panes -s | grep "$paneName\:" | awk '{ print $7 }')
-    cmd="tmux swap-window -s $(echo $paneName | cut -d. -f1) -t $(echo $paneName | cut -d. -f2)"
+    cmd="tmux select-window -t $(echo $paneName | cut -d. -f1) && tmux select-pane -t $(echo $paneName | cut -d. -f2)"
     echo $cmd
     eval $cmd
 }
