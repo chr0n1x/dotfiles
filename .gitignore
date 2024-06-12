@@ -3,3 +3,4 @@ nvim/plugin/
 *.swp
 .nvimlog
 .config/tmux/plugins/
+.config/btop
