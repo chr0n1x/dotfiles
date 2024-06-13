@@ -11,14 +11,14 @@ plugins=(
 )
 source $ZSH/oh-my-zsh.sh
 
+export PATH="$HOME/.local/bin:$PATH"
+
 autoload -Uz compinit && compinit
 
 # TODO: figure out why autoload didn't work here even w/ fpath
 for script in $(ls ~/.config/zsh/scripts); do
   source ~/.config/zsh/scripts/$script
 done
-
-export PATH="$HOME/.local/bin:$PATH"
 
 if [ "$TMUX" = "" ]; then
   if ! tmux ls &> /dev/null; then
