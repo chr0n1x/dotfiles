@@ -2,9 +2,13 @@
 
 alias dc="docker compose"
 alias vim="nvim"
+alias t="talosctl"
 
 if uname | grep Linux &> /dev/null; then
-  alias cat="batcat"
+  batbin="batcat"
 else
-  alias cat="bat"
+  batbin="bat"
+fi
+if which $batbin &> /dev/null; then
+  alias cat="$batbin"
 fi
