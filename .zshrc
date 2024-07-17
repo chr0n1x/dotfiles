@@ -20,11 +20,3 @@ autoload -Uz compinit && compinit
 for script in $(ls ~/.config/zsh/scripts); do
   source ~/.config/zsh/scripts/$script
 done
-
-if [ "$TMUX" = "" ]; then
-  if ! tmux ls &> /dev/null; then
-    tmux
-  else
-    tmux attach-session
-  fi
-fi

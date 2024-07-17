@@ -1,5 +1,10 @@
-# if on linux do "make linux" first before this
-default: install-zsh setup-git stow
+# if on linux:
+#
+#   apt install -y git curl build-essential
+#   make linux default
+#
+# if any commands fail, you might have to run an apt-get as sudo first
+default: install-zsh setup-git stow chsh
 
 tag := chr0n1x/dev-env:latest
 
@@ -16,8 +21,15 @@ dev:
 
 # assume that stow is already installed (check the macos-install target below)
 stow:
-	git submodule update --init
+	@git submodule update --init || \
+	  (echo "Could not install submodules. If you do not have SSH set up, clone via 'make install-submodules'" && \
+	  exit 1)
 	stow -d $(shell pwd) -t ~/ .
+
+
+chsh:
+	chsh $(shell whoami) --shell $(shell which zsh)
+
 
 include make/*.mk
 
