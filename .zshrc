@@ -7,7 +7,7 @@ plugins=(
   fzf
   git
   kubectl
-  talosctl
+  # talosctl
   vi-mode
 )
 source $ZSH/oh-my-zsh.sh
