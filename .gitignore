@@ -4,3 +4,4 @@ nvim/plugin/
 .nvimlog
 .config/tmux/plugins/
 .config/btop
+tmux-*-*.log
