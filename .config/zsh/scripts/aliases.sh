@@ -10,5 +10,5 @@ else
   batbin="bat"
 fi
 if which $batbin &> /dev/null; then
-  alias cat="$batbin"
+  alias cat="$batbin -pP"
 fi
