@@ -2,7 +2,6 @@ export ZSH="$HOME/.oh-my-zsh"
 export ZSH_THEME="gallifrey"
 export VI_MODE_SET_CURSOR=true
 plugins=(
-  ag
   direnv
   fzf
   git
