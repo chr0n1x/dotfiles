@@ -52,3 +52,9 @@ linux:
 	rm nvim-linux64.tar.gz
 	# If this fails run it as sudo
 	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
+
+
+# some LSP things require nodejs :(
+install-nvm-lts:
+	curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+
