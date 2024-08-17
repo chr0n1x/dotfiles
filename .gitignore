@@ -2,6 +2,10 @@ nvim/plugin/
 .nvimlog
 *.swp
 .nvimlog
+tmux-*-*.log
+
+# .config things
 .config/tmux/plugins/
 .config/btop
-tmux-*-*.log
+.config/helm
+.config/htop

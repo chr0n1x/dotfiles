@@ -3,6 +3,7 @@ export ZSH_THEME="gallifrey"
 export VI_MODE_SET_CURSOR=true
 plugins=(
   direnv
+  docker
   fzf
   git
   kubectl
