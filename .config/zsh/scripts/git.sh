@@ -6,7 +6,9 @@
 alias gp="git pull --rebase"
 alias gs="git status"
 
-unalias gl # AHHHHHHHHHHHHHHHHHHHH
+if which gl > /dev/null; then
+  unalias gl # AHHHHHHHHHHHHHHHHHHHH
+fi
 function gl() {
   numLogs=8
   if [[ ! -z "$@" ]]; then
@@ -16,7 +18,9 @@ function gl() {
   git log -n "${numLogs}"
 }
 
-unalias gr # AHHHHHHHHHHHHHHHHHHHH
+if which gr > /dev/null; then
+  unalias gr # AHHHHHHHHHHHHHHHHHHHH
+fi
 function gr() {
   expectedRemoteName="upstream"
 
@@ -35,7 +39,9 @@ function gr() {
   git rebase "${expectedRemoteName}/${remoteMainBranch}" -i
 }
 
-unalias gf # AHHHHHHHHHHHHHHHHHHHH
+if which gf > /dev/null; then
+  unalias gf # AHHHHHHHHHHHHHHHHHHHH
+fi
 function gf() { git commit --fixup "$@" }
 
 # force push current branch, but only if we're pushing to our own fork
