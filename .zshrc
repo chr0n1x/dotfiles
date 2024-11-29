@@ -19,3 +19,9 @@ autoload -Uz compinit && compinit
 for script in $(ls ~/.config/zsh/scripts); do
   source ~/.config/zsh/scripts/$script
 done
+
+if [[ -z "$TMUX" ]]; then
+  if ! tmux attach &> /dev/null; then
+      tmux
+  fi
+fi
