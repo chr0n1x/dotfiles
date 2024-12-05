@@ -12,6 +12,9 @@ plugins=(
 source $ZSH/oh-my-zsh.sh
 
 export PATH="$HOME/.local/bin:$PATH:/snap/bin"
+if which go &> /dev/null; then
+  export PATH="$PATH:$(go env GOPATH)/bin"
+fi
 
 autoload -Uz compinit && compinit
 
