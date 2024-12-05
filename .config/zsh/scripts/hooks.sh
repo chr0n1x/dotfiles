@@ -10,7 +10,7 @@ if command -v brew >/dev/null 2>&1; then
   done
 fi
 
-if [ -f ~/.dir_colors ]; then
+if [ -f ~/.dir_colors ] && which dircolors &> /dev/null; then
   test -r ~/.dir_colors && eval $(dircolors ~/.dir_colors)
 fi
 
