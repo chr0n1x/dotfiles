@@ -8,6 +8,7 @@ if command -v brew >/dev/null 2>&1; then
   for i in $(ls "$brew_prefix/etc/profile.d/"); do
     source "${brew_prefix}/etc/profile.d/$i"
   done
+  source $(brew --prefix)/Cellar/fzf/$(fzf --version | cut -d ' ' -f 1)/shell/key-bindings.zsh
 fi
 
 if [ -f ~/.dir_colors ] && which dircolors &> /dev/null; then
