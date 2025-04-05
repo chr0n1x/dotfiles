@@ -28,3 +28,9 @@ if [[ -z "$TMUX" ]]; then
       tmux
   fi
 fi
+
+# HACK: direnv does not support recursive loading of configs
+# https://github.com/direnv/direnv/issues/606
+if [ -f ~/.envrc ]; then
+  source ~/.envrc
+fi
