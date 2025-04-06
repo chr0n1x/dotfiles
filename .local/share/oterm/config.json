@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "time": {
+            "args": [
+                "mcp-server-time",
+                "--local-timezone=America/New_York"
+            ],
+            "command": "uvx"
+        }
+    },
+    "splash-screen": true,
+    "theme": "textual-dark"
+}
