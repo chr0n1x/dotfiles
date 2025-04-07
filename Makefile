@@ -6,6 +6,8 @@
 # if any commands fail, you might have to run an apt-get as sudo first
 default: install-zsh setup-git stow chsh
 
+linux-arm64: install-zsh setup-git nvim-linux-arm64 submodules-over-https stow chsh
+
 tag := chr0n1x/dev-env:latest
 
 build:
@@ -53,7 +55,8 @@ linux:
 	# If this fails run it as sudo
 	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
 
-linux-arm64:
+
+nvim-linux-arm64:
 	rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
 	curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.tar.gz
 	mkdir -p ~/.local/opt
@@ -63,6 +66,11 @@ linux-arm64:
 	rm nvim-linux-arm64.tar.gz
 	# If this fails run it as sudo
 	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
+
+
+submodules-over-https:
+	git clone https://github.com/tmux-plugins/tpm.git .tmux/plugins/tpm
+	git clone https://github.com/chr0n1x/neovim-configs .config/nvim
 
 
 # some LSP things require nodejs :(
