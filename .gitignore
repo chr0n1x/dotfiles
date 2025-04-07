@@ -9,3 +9,4 @@ tmux-*-*.log
 .config/btop
 .config/helm
 .config/htop
+.config/go
