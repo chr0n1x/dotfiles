@@ -53,8 +53,18 @@ linux:
 	# If this fails run it as sudo
 	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
 
+linux-arm64:
+	rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
+	curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.tar.gz
+	mkdir -p ~/.local/opt
+	tar -C ~/.local/opt -xzf nvim-linux-arm64.tar.gz
+	mkdir -p ~/.local/bin
+	ln -vs ~/.local/opt/nvim-linux64/bin/nvim ~/.local/bin/nvim
+	rm nvim-linux-arm64.tar.gz
+	# If this fails run it as sudo
+	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
+
 
 # some LSP things require nodejs :(
 install-nvm-lts:
 	curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
-
