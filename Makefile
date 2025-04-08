@@ -40,7 +40,7 @@ clean:
 
 macos-install:
 	which brew /dev/null || /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree fd stow zoxide tmux
+	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree fd stow zoxide tmux knqyf263/pet/pet
 	pip3 install virtualenv
 
 # TODO: clean this up, adding here for reference later
