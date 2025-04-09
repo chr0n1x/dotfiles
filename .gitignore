@@ -10,3 +10,4 @@ tmux-*-*.log
 .config/helm
 .config/htop
 .config/go
+.config/pet
