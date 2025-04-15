@@ -7,7 +7,7 @@
 default: install-zsh setup-git stow chsh
 
 # rpi or linux in general
-linux-arm64: install-zsh setup-git linux-compile-nvim submodules-over-https stow chsh
+linux-arm64: install-zsh setup-git linux linux-compile-nvim submodules-over-https stow chsh
 
 tag := chr0n1x/dev-env:latest
 
@@ -46,7 +46,7 @@ macos-install:
 
 # TODO: clean this up, adding here for reference later
 linux:
-	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
+	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux cmake
 	# TODO: go back to this when 0.11 packages officially get released for arm7
 	# rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
 	# curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
@@ -68,7 +68,7 @@ nvim-linux-arm64:
 	ln -vs ~/.local/opt/nvim-linux64/bin/nvim ~/.local/bin/nvim
 	rm nvim-linux-arm64.tar.gz
 	# If this fails run it as sudo
-	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
+	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux cmake
 
 
 # run this w/ sudo
