@@ -6,7 +6,8 @@
 # if any commands fail, you might have to run an apt-get as sudo first
 default: install-zsh setup-git stow chsh
 
-linux-arm64: install-zsh setup-git nvim-linux-arm64 submodules-over-https stow chsh
+# rpi or linux in general
+linux-arm64: install-zsh setup-git linux-compile-nvim submodules-over-https stow chsh
 
 tag := chr0n1x/dev-env:latest
 
@@ -45,15 +46,17 @@ macos-install:
 
 # TODO: clean this up, adding here for reference later
 linux:
-	rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
-	curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
-	mkdir -p ~/.local/opt
-	tar -C ~/.local/opt -xzf nvim-linux64.tar.gz
-	mkdir -p ~/.local/bin
-	ln -vs ~/.local/opt/nvim-linux64/bin/nvim ~/.local/bin/nvim
-	rm nvim-linux64.tar.gz
-	# If this fails run it as sudo
 	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
+	# TODO: go back to this when 0.11 packages officially get released for arm7
+	# rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
+	# curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
+	# mkdir -p ~/.local/opt
+	# tar -C ~/.local/opt -xzf nvim-linux64.tar.gz
+	# mkdir -p ~/.local/bin
+	# ln -vs ~/.local/opt/nvim-linux64/bin/nvim ~/.local/bin/nvim
+	# rm nvim-linux64.tar.gz
+	# # If this fails run it as sudo
+	# apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
 
 
 nvim-linux-arm64:
@@ -66,6 +69,15 @@ nvim-linux-arm64:
 	rm nvim-linux-arm64.tar.gz
 	# If this fails run it as sudo
 	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
+
+
+# run this w/ sudo
+linux-compile-nvim:
+	rm -rf ~/.local/opt/neovim || :
+	git clone https://github.com/neovim/neovim.git ~/.local/opt/neovim
+	cd ~/.local/opt/neovim
+	make CMAKE_BUILD_TYPE=RelWithDebInfo
+	make install
 
 
 submodules-over-https:
