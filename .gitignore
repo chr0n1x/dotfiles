@@ -11,3 +11,5 @@ tmux-*-*.log
 .config/htop
 .config/go
 .config/pet
+
+chroma.log
