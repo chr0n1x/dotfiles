@@ -40,3 +40,7 @@ fpath=(/Users/kran/.docker/completions $fpath)
 autoload -Uz compinit
 compinit
 # End of Docker CLI completions
+
+function pet-run() {
+  pet search | bash -xe
+}
