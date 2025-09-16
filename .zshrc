@@ -23,7 +23,7 @@ for script in $(ls ~/.config/zsh/scripts); do
   source ~/.config/zsh/scripts/$script
 done
 
-if [[ -z "$TMUX" ]]; then
+if [[ -z "$TMUX" && -z "$SSH_CONNECTION" ]]; then
   if ! tmux attach &> /dev/null; then
       tmux
   fi
@@ -34,12 +34,6 @@ fi
 if [ -f ~/.envrc ]; then
   source ~/.envrc
 fi
-
-# The following lines have been added by Docker Desktop to enable Docker CLI completions.
-fpath=(/Users/kran/.docker/completions $fpath)
-autoload -Uz compinit
-compinit
-# End of Docker CLI completions
 
 function pet-run() {
   pet search | bash -xe
