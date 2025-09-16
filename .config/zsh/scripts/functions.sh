@@ -6,11 +6,12 @@ function dex {
   fi
 }
 
-function dvim {
-    dex --entrypoint "nvim" chr0n1x/dev-env
-}
-
 function k8s-shell {
     kubectl run "$@-test-shell" --rm -i --tty --image ubuntu -- /bin/bash
     kubectl delete pod "$@-test-shell"
 }
+
+function pet-run() {
+  pet search | bash -xe
+}
+

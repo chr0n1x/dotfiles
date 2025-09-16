@@ -31,10 +31,7 @@ fi
 
 # HACK: direnv does not support recursive loading of configs
 # https://github.com/direnv/direnv/issues/606
+# pipe to dev null to avoid output for second time
 if [ -f ~/.envrc ]; then
-  source ~/.envrc
+  source ~/.envrc > /dev/null
 fi
-
-function pet-run() {
-  pet search | bash -xe
-}
