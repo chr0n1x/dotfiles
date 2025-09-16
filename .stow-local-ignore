@@ -2,6 +2,7 @@
 # TODO: think of a nicer, simpler way of doing this
 \.travis.yml
 make
+scripts # this is windows powershell scripts
 ^/Dockerfile
 ^/Makefile
 
