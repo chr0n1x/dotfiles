@@ -23,15 +23,15 @@ for script in $(ls ~/.config/zsh/scripts); do
   source ~/.config/zsh/scripts/$script
 done
 
-if [[ -z "$TMUX" && -z "$SSH_CONNECTION" ]]; then
-  if ! tmux attach &> /dev/null; then
-      tmux
-  fi
-fi
-
 # HACK: direnv does not support recursive loading of configs
 # https://github.com/direnv/direnv/issues/606
 # pipe to dev null to avoid output for second time
 if [ -f ~/.envrc ]; then
   source ~/.envrc > /dev/null
+fi
+
+if [[ -z "$TMUX" && -z "$SSH_CONNECTION" ]]; then
+  if ! tmux attach &> /dev/null; then
+      tmux
+  fi
 fi
