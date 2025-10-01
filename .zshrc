@@ -30,6 +30,6 @@ done
 
 if [[ -z "$TMUX" && "$AUTO_TMUX" = "true" ]]; then
   if ! tmux attach &> /dev/null; then
-      export TMUX_INIT=true && tmux
+      export TMUX_INIT=true && tmux && exit 0
   fi
 fi
