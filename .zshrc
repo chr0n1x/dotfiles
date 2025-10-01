@@ -26,12 +26,10 @@ done
 # HACK: direnv does not support recursive loading of configs
 # https://github.com/direnv/direnv/issues/606
 # pipe to dev null to avoid output for second time
-if [ -f ~/.envrc ]; then
-  source ~/.envrc > /dev/null
-fi
+[ -f ~/.envrc ] && source ~/.envrc > /dev/null
 
-if [[ -z "$TMUX" && -z "$SSH_CONNECTION" ]]; then
+if [[ -z "$TMUX" && "$AUTO_TMUX" = "true" ]]; then
   if ! tmux attach &> /dev/null; then
-      tmux
+      export TMUX_INIT=true && tmux
   fi
 fi
