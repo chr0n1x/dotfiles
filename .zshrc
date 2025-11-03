@@ -29,7 +29,16 @@ done
 [ -f ~/.envrc ] && source ~/.envrc > /dev/null
 
 if [[ -z "$TMUX" && "$AUTO_TMUX" = "true" ]]; then
-  if ! tmux attach &> /dev/null; then
-      export TMUX_INIT=true && tmux && exit 0
+  export TMUX_INIT=true
+
+  # not an SSH conn; guessing from local
+  if ! env | grep SSH_CONNECTION &> /dev/null; then
+    if ! tmux attach &> /dev/null; then
+        tmux && exit 0
+    fi
   fi
+
+  # over SSH connection
+  sshHost=$(env | grep SSH_CONNECTION | cut -d= -f2 | awk '{ print $1 }')
+  tmux new-session -A -s "from-${sshHost}" && exit 0
 fi
