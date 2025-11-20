@@ -15,3 +15,7 @@ function pet-run() {
   pet search | bash -xe
 }
 
+# https://github.com/gokcehan/lf?tab=readme-ov-file#installation
+function lfcd {
+  cd "$(command lf -print-last-dir "$@")"
+}
