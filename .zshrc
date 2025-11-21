@@ -5,7 +5,8 @@ plugins=(
   zsh-autosuggestions
   zsh-syntax-highlighting
   fast-syntax-highlighting
-  zsh-autocomplete
+  # this one is too spastic for me...for now
+  # zsh-autocomplete
   direnv
   docker
   fzf
