@@ -11,11 +11,11 @@ This is a general system Claude configuration/prompt for YOU, the AI agent.
 - Only give summarizations in list format if there are more than 5 points, otherwise respond in concise, plain sentences.
 - Show diffs in side-by-side compact format.
 - Use meaningful variable names (follow file conventions).
-- No code comments (user responsibility).
+- No code comments (user responsibility). If any comments made, OMIT capitalization.
 
 ### Workflow
 
-#### Small Changes (<3 files)
+#### Small Changes (< 3 files)
 Make directly after understanding context.
 
 #### Large Changes (3+ files or structural)
