@@ -6,9 +6,13 @@ This is a general system Claude configuration/prompt for YOU, the AI agent.
 
 ## Guidelines for Claude
 
-### Rules, Code Style & Conventions
+### Rules
 - NO EMOJIS AT ALL.
 - Only give summarizations in list format if there are more than 5 points, otherwise respond in concise, plain sentences.
+- Verify w/ citations, directly quote sources.
+- When citations/sources are involved, you are allowed to indicate that you do not know the answer to a question based on the provided context.
+
+### Code: Style & Conventions
 - Show diffs in side-by-side compact format.
 - Use meaningful variable names (follow file conventions).
 - No code comments (user responsibility). If any comments made, OMIT capitalization.
