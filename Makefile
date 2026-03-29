@@ -46,7 +46,20 @@ macos-install:
 
 # TODO: clean this up, adding here for reference later
 linux:
-	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux cmake
+	apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel
+	# direnv - for all .envrc shell secrets, PER dir
+	# git - cause git
+	# zsh - my shell of choice
+	# ripgrep - faster grep
+	# fzf - nice fuzzy search
+	# bat - better cat
+	# tree - nice dir listing
+	# stow - for all .conf files and symlinks in my home directory
+	# zoxide - cd but with fuzzy matching
+	# tmux - cause what you doing without it
+	# cmake - for compiling nvim
+	# xsel - copy-paste from remote host to host terminal
+	#
 	# TODO: go back to this when 0.11 packages officially get released for arm7
 	# rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
 	# curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
