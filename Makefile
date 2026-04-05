@@ -46,11 +46,6 @@ macos-install:
 
 # TODO: clean this up, adding here for reference later
 linux:
-	sudo apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup
-	sudo mkdir -p /etc/apt/keyrings
-	curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-	echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-	sudo apt update && sudo apt install glow
 	# direnv - for all .envrc shell secrets, PER dir
 	# git - cause git
 	# zsh - my shell of choice
@@ -74,7 +69,27 @@ linux:
 	# rm nvim-linux64.tar.gz
 	# # If this fails run it as sudo
 	# apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
+	sudo apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup
 
+	# pretty cli things
+	sudo mkdir -p /etc/apt/keyrings
+	curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+	echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+	sudo apt update && sudo apt install glow
+
+	# cluster wrangling
+	curl -sL https://talos.dev/install | sh
+	# pick your poison
+	snap install kubectl --classic
+	kubectl version --client
+	# optional things with krew and whatnot - do it yourself
+	# https://krew.sigs.k8s.io/docs/user-guide/setup/install/
+	# kubectl krew install ctx ns cnpg cert-manager
+
+	# AI things
+	curl -fsSL https://claude.ai/install.sh | bash
+	curl -fsSL https://ollama.com/install.sh | sh
+	systemctl disable ollama # only use CLI
 
 nvim-linux-arm64:
 	rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
