@@ -46,7 +46,11 @@ macos-install:
 
 # TODO: clean this up, adding here for reference later
 linux:
-	sudo apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel
+	sudo apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup
+	sudo mkdir -p /etc/apt/keyrings
+	curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+	echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+	sudo apt update && sudo apt install glow
 	# direnv - for all .envrc shell secrets, PER dir
 	# git - cause git
 	# zsh - my shell of choice
