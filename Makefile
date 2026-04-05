@@ -4,10 +4,10 @@
 #   make linux default
 #
 # if any commands fail, you might have to run an apt-get as sudo first
-default: install-zsh setup-git git-signing stow chsh
+default: install-zsh setup-git linux git-signing stow chsh
 
 # rpi or linux in general
-linux-arm64: install-zsh setup-git linux linux-compile-nvim submodules-over-https stow chsh
+linux-arm64: submodules-over-https install-zsh setup-git linux linux-compile-nvim stow chsh
 
 tag := chr0n1x/dev-env:latest
 
