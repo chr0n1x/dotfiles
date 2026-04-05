@@ -46,7 +46,7 @@ macos-install:
 
 # TODO: clean this up, adding here for reference later
 linux:
-	apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel
+	sudo apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel
 	# direnv - for all .envrc shell secrets, PER dir
 	# git - cause git
 	# zsh - my shell of choice
