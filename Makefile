@@ -58,6 +58,7 @@ linux:
 	# tmux - cause what you doing without it
 	# cmake - for compiling nvim
 	# xsel - copy-paste from remote host to host terminal
+	# cifs-utils to mount things via fstab
 	#
 	# TODO: go back to this when 0.11 packages officially get released for arm7
 	# rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
@@ -67,9 +68,7 @@ linux:
 	# mkdir -p ~/.local/bin
 	# ln -vs ~/.local/opt/nvim-linux64/bin/nvim ~/.local/bin/nvim
 	# rm nvim-linux64.tar.gz
-	# # If this fails run it as sudo
-	# apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux
-	sudo apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup
+	sudo apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup cifs-utils
 
 	# pretty cli things
 	sudo mkdir -p /etc/apt/keyrings
