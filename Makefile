@@ -75,6 +75,8 @@ linux:
 	curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
 	echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
 	sudo apt update && sudo apt install glow
+	curl https://sh.rustup.rs -sSf | sh
+	cargo install git-delta
 
 	# cluster wrangling
 	curl -sL https://talos.dev/install | sh
@@ -90,24 +92,11 @@ linux:
 	curl -fsSL https://ollama.com/install.sh | sh
 	sudo systemctl disable ollama # only use CLI
 
-nvim-linux-arm64:
-	rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
-	curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.tar.gz
-	mkdir -p ~/.local/opt
-	tar -C ~/.local/opt -xzf nvim-linux-arm64.tar.gz
-	mkdir -p ~/.local/bin
-	ln -vs ~/.local/opt/nvim-linux64/bin/nvim ~/.local/bin/nvim
-	rm nvim-linux-arm64.tar.gz
-	# If this fails run it as sudo
-	apt-get install direnv git gh zsh ripgrep fzf bat tree stow zoxide tmux cmake
-
-
 # run this w/ sudo
 linux-compile-nvim:
 	rm -rf ~/.local/opt/neovim || :
 	git clone https://github.com/neovim/neovim.git ~/.local/opt/neovim
 	cd ~/.local/opt/neovim && make CMAKE_BUILD_TYPE=RelWithDebInfo && sudo make install
-
 
 submodules-over-https:
 	git clone https://github.com/tmux-plugins/tpm.git .tmux/plugins/tpm
