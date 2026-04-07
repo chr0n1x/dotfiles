@@ -79,7 +79,7 @@ linux:
 	# cluster wrangling
 	curl -sL https://talos.dev/install | sh
 	# pick your poison
-	snap install kubectl --classic
+	sudo snap install kubectl --classic
 	kubectl version --client
 	# optional things with krew and whatnot - do it yourself
 	# https://krew.sigs.k8s.io/docs/user-guide/setup/install/
