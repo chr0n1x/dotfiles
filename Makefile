@@ -106,7 +106,7 @@ nvim-linux-arm64:
 linux-compile-nvim:
 	rm -rf ~/.local/opt/neovim || :
 	git clone https://github.com/neovim/neovim.git ~/.local/opt/neovim
-	cd ~/.local/opt/neovim && make CMAKE_BUILD_TYPE=RelWithDebInfo && make install
+	cd ~/.local/opt/neovim && make CMAKE_BUILD_TYPE=RelWithDebInfo && sudo make install
 
 
 submodules-over-https:
