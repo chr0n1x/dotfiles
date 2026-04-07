@@ -88,7 +88,7 @@ linux:
 	# AI things
 	curl -fsSL https://claude.ai/install.sh | bash
 	curl -fsSL https://ollama.com/install.sh | sh
-	systemctl disable ollama # only use CLI
+	sudo systemctl disable ollama # only use CLI
 
 nvim-linux-arm64:
 	rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
