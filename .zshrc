@@ -1,6 +1,7 @@
 export ZSH="$HOME/.oh-my-zsh"
 export ZSH_THEME="gallifrey"
 export VI_MODE_SET_CURSOR=true
+
 plugins=(
   zsh-autosuggestions
   zsh-syntax-highlighting
@@ -8,10 +9,13 @@ plugins=(
   # this one is too spastic for me...for now
   # zsh-autocomplete
   direnv
-  docker
-  fzf
+  # or podman?
+  # docker
+  # autocomplete script takes care of most of my needs for now
+  # fzf
   git
-  kubectl
+  # eh...
+  # kubectl
   vi-mode
 )
 source $ZSH/oh-my-zsh.sh

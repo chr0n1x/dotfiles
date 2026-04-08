@@ -1,3 +1,7 @@
+if !command -v pet; then
+  return
+fi
+
 #compdef pet
 compdef _pet pet
 

@@ -3,6 +3,7 @@
 alias dc="docker compose"
 alias vim="nvim"
 alias t="talosctl"
+alias k="kubectl"
 
 if uname | grep Linux &> /dev/null; then
   batbin="batcat"
