@@ -1,4 +1,4 @@
-if !command -v pet; then
+if ! command -v pet; then
   return
 fi
 
