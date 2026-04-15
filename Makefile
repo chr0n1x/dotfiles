@@ -1,26 +1,12 @@
 # if on linux:
 #
 #   apt install -y git curl build-essential
-#   make linux default
+#   make
 #
 # if any commands fail, you might have to run an apt-get as sudo first
-default: install-zsh setup-git linux git-signing stow chsh
+# also assumes that your SSH keys are in place
+default: linux-compile-nvim linux install-zsh setup-git git-signing stow chsh
 
-# rpi or linux in general
-linux-arm64: submodules-over-https install-zsh setup-git linux linux-compile-nvim stow chsh
-
-tag := chr0n1x/dev-env:latest
-
-build:
-	docker build --tag $(tag) .
-
-dev:
-	@echo "Building container for local dev if DNE"
-	@docker inspect $(tag) || $(MAKE) build
-	docker run --rm -ti \
-	  -v $(shell pwd):/workspace \
-	  -w /workspace \
-	  --entrypoint zsh $(tag)
 
 # assume that stow is already installed (check the macos-install target below)
 stow:
@@ -59,15 +45,6 @@ linux:
 	# cmake - for compiling nvim
 	# xsel - copy-paste from remote host to host terminal
 	# cifs-utils to mount things via fstab
-	#
-	# TODO: go back to this when 0.11 packages officially get released for arm7
-	# rm -rf ~/.local/bin/nvim ~/.local/opt/nvim*
-	# curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
-	# mkdir -p ~/.local/opt
-	# tar -C ~/.local/opt -xzf nvim-linux64.tar.gz
-	# mkdir -p ~/.local/bin
-	# ln -vs ~/.local/opt/nvim-linux64/bin/nvim ~/.local/bin/nvim
-	# rm nvim-linux64.tar.gz
 	sudo apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup cifs-utils
 
 	# pretty cli things
@@ -76,12 +53,16 @@ linux:
 	echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
 	sudo apt update && sudo apt install glow
 	curl https://sh.rustup.rs -sSf | sh
-	cargo install git-delta
+	$(shell $$HOME/.cargo/bin/cargo install git-delta)
 
 	# cluster wrangling
 	curl -sL https://talos.dev/install | sh
 	# pick your poison
-	sudo snap install kubectl --classic
+	# sudo snap install kubectl --classic
+	curl -LO "https://dl.k8s.io/release/$(shell curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+	curl -LO "https://dl.k8s.io/release/$(shell curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl.sha256"
+	echo "$$(cat kubectl.sha256)  kubectl" | sha256sum --check
+	sudo install -o kran -g kran -m 0755 kubectl /usr/local/bin/kubectl
 	kubectl version --client
 	# optional things with krew and whatnot - do it yourself
 	# https://krew.sigs.k8s.io/docs/user-guide/setup/install/
@@ -92,10 +73,24 @@ linux:
 	curl -fsSL https://ollama.com/install.sh | sh
 	sudo systemctl disable ollama # only use CLI
 
+# doesnt actually work - made to copy-paste
+install-krew:
+	(
+		set -x; cd "$(mktemp -d)" &&
+		OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+		ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
+		KREW="krew-${OS}_${ARCH}" &&
+		curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
+		tar zxvf "${KREW}.tar.gz" &&
+		./"${KREW}" install krew
+	)
+	kubectl krew install ctx ns cnpg cert-manager
+
 # run this w/ sudo
 linux-compile-nvim:
 	rm -rf ~/.local/opt/neovim || :
 	git clone https://github.com/neovim/neovim.git ~/.local/opt/neovim
+	sudo apt-get install ninja-build gettext cmake curl build-essential git
 	cd ~/.local/opt/neovim && make CMAKE_BUILD_TYPE=RelWithDebInfo && sudo make install
 
 submodules-over-https:

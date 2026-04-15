@@ -9,6 +9,7 @@ install-omzsh:
 	-sh -c \
 	  "$$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
 	  "" --unattended
+	rm $${HOME}.zshrc # stow links this
 
 install-omz-plugins:
 	git clone https://github.com/zsh-users/zsh-autosuggestions $${ZSH_CUSTOM:-$$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
