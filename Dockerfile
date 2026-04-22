@@ -1,26 +1,40 @@
-FROM alpine:3.13 AS agbuild
+FROM alpine:latest
 
-# copied from https://github.com/Ketouem/ag-alpine/blob/master/Dockerfile
-RUN apk update && \
-    apk add make git automake autoconf g++ pcre-dev xz-dev zlib-dev
-RUN git clone --depth 1 --single-branch \
-    --branch 2.2.0 https://github.com/ggreer/the_silver_searcher.git
-WORKDIR ./the_silver_searcher
-RUN CFLAGS="-fcommon -D_GNU_SOURCE -lpthread" ./build.sh
+RUN apk add --no-cache \
+    zoxide \
+    direnv \
+    zsh \
+    git \
+    bash \
+    make \
+    curl \
+    tmux \
+    ncurses
 
-FROM alpine:edge AS devenv
+RUN git clone https://github.com/zunit-zsh/zunit && \
+      cd ./zunit && \
+      ./build.zsh && \
+      chmod u+x ./zunit && \
+      cp ./zunit /usr/local/bin/.
 
-RUN apk update && \
-    apk add make zsh neovim git coreutils curl \
-            python3 py-pip alpine-sdk python3-dev pcre-dev ripgrep stow && \
-    sed -i 's/ash/zsh/g' /etc/passwd && \
-    pip install pynvim neovim virtualenv
+RUN git clone https://github.com/molovo/revolver revolver && \
+      chmod u+x revolver/revolver && \
+      mv revolver/revolver /usr/local/bin/.
 
-COPY --from=agbuild ./the_silver_searcher/ag .
-RUN chmod +x ./ag && mv ./ag /usr/bin/.
+RUN sh -c \
+	"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+	"" --unattended
 
-ADD     . /root/Code/chr0n1x/dev-env
-WORKDIR /root/Code/chr0n1x/dev-env
-RUN     make
+WORKDIR /app
+COPY Makefile /app/Makefile
+COPY make /app/make
+# TODO: yes yes - change to diff user later
+COPY .config/zsh /root/.config/zsh
+RUN make install-omz-plugins
 
-ENTRYPOINT ["zsh"]
+# uhhh iunno if this works
+ENV TERM=linux
+ENV SHELL=/usr/bin/zsh
+
+# Run zunit by default with omz sourced
+ENTRYPOINT ["zsh", "-c", "cd /app && source /root/.zshrc && zunit"]

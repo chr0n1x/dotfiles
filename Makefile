@@ -22,6 +22,8 @@ chsh:
 
 include make/*.mk
 
+test: docker-test
+
 clean:
 	rm -rf nvim/plugin ~/.local/share/nvim ~/.config/nvim ~/.cache/nvim ~/.config/nvim ~/.config/zsh ~/.zshrc
 
