@@ -6,6 +6,7 @@ scripts # this is windows powershell scripts
 ^/Dockerfile
 ^/Makefile
 envrc.sample
+tests
 
 RCS
 .+,v
