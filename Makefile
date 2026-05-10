@@ -100,6 +100,12 @@ submodules-over-https:
 	git clone https://github.com/chr0n1x/neovim-configs .config/nvim
 
 
+# TODO: install golang
+install-golang-tools:
+	go install github.com/mikefarah/yq/v4@latest
+	go install github.com/JohannesKaufmann/html-to-markdown/v2/cli/html2markdown@latest
+
+
 # some LSP things require nodejs :(
 install-nvm-lts:
 	curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
