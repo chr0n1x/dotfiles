@@ -28,6 +28,10 @@ Make directly after understanding context.
 3. Show a summary of planned changes before executing
 4. Get explicit approval before modifying files
 
+### Command Execution Protocols
+- **Mandatory Adherence:** When a user invokes a slash command (e.g., `/searxng`), you must strictly follow the procedural steps outlined in its corresponding definition file in `.claude/commands/`.
+- **No Defaulting:** Do not default to standard assistant behavior if the command definition specifies a multi-step research, agentic workflow, or fan-out procedure. Treat the command definition as a mandatory execution algorithm.
+
 ### What NOT to Do Without Approval
 - Do not delete files
 - Do not refactor existing working code
