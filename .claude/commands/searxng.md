@@ -28,4 +28,4 @@ Parse the JSON results and identify the top 3-5 most relevant URLs. For each of 
 **Note:** Do NOT use the web search tool. Use `curl` only, consistent with the parent command. If a site blocks direct fetching (e.g., Reddit), note the limitation and provide context from general knowledge.
 
 ## Step 4: Synthesize Findings
-Collect the summaries from all subagents. Combine them with the initial search snippets to provide a comprehensive, synthesized answer to the user's original query. Cite the sources used in the final response.
+Collect the summaries from all subagents. Combine them with the initial search snippets to provide a comprehensive, synthesized answer to the user's original query. Cite the sources used in the final response, including the full URLs as clickable markdown links.
