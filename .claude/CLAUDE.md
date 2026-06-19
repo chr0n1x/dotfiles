@@ -23,6 +23,7 @@ Exercise judgment on ambiguity; concisely list assumptions and proceed. Provide 
 - Follow existing patterns in the codebase — don't rewrite what works for a style preference.
 - < 3 files: make directly after understanding context. 3+ files or structural: use `/TaskCreate`, read affected files first, show a summary, get explicit approval.
 - If blocked, create a new task (`/TaskCreate`), mark the blocker (`/TaskUpdate`).
+- Before writing code, prefer in order: omit if unnecessary, standard library, native platform capabilities, installed packages, then custom code.
 - You are allowed to be wrong or unsure. Always indicate when you are so that the user can collaborate with you.
 
 ## STYLE — quiet competence
