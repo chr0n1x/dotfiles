@@ -4,7 +4,6 @@ export VI_MODE_SET_CURSOR=true
 
 plugins=(
   zsh-autosuggestions
-  zsh-syntax-highlighting
   fast-syntax-highlighting
   # this one is too spastic for me...for now
   # zsh-autocomplete
@@ -31,8 +30,8 @@ fi
 autoload -Uz compinit && compinit
 
 # TODO: figure out why autoload didn't work here even w/ fpath
-for script in $(ls ~/.config/zsh/scripts); do
-  source ~/.config/zsh/scripts/$script
+for script in ~/.config/zsh/scripts/*; do
+  source $script
 done
 
 # HACK: direnv does not support recursive loading of configs
