@@ -1,40 +1,29 @@
-FROM alpine:latest
+FROM debian:trixie-slim
 
-RUN apk add --no-cache \
-    zoxide \
-    direnv \
-    zsh \
-    git \
-    bash \
-    make \
-    curl \
-    tmux \
-    ncurses
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl make ca-certificates zsh direnv zoxide \
+  && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/zunit-zsh/zunit && \
-      cd ./zunit && \
-      ./build.zsh && \
-      chmod u+x ./zunit && \
-      cp ./zunit /usr/local/bin/.
+# Install zunit + revolver
+RUN git clone https://github.com/zunit-zsh/zunit /tmp/zunit && \
+      cd /tmp/zunit && ./build.zsh && chmod u+x ./zunit && cp ./zunit /usr/local/bin/
 
-RUN git clone https://github.com/molovo/revolver revolver && \
-      chmod u+x revolver/revolver && \
-      mv revolver/revolver /usr/local/bin/.
+RUN git clone https://github.com/molovo/revolver /tmp/revolver && \
+      chmod u+x /tmp/revolver/revolver && cp /tmp/revolver/revolver /usr/local/bin/
 
+# Install OMZ (unattended)
 RUN sh -c \
 	"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
 	"" --unattended
 
 WORKDIR /app
-COPY Makefile /app/Makefile
-COPY make /app/make
-# TODO: yes yes - change to diff user later
-COPY .config/zsh /root/.config/zsh
+COPY . /app
 RUN make install-omz-plugins
 
-# uhhh iunno if this works
+# Symlink so $HOME/.config points to /app/.config (where our scripts live)
+RUN ln -sf /app/.config /root/.config
+
 ENV TERM=linux
 ENV SHELL=/usr/bin/zsh
 
-# Run zunit by default with omz sourced
-ENTRYPOINT ["zsh", "-c", "cd /app && source /root/.zshrc && zunit"]
+ENTRYPOINT ["zsh", "-c", "cd /app && source /app/.zshrc && zunit"]

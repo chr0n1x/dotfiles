@@ -20,3 +20,14 @@ dev: build-container
 		-v "$(shell pwd)/.zshrc:/root/.zshrc:ro" \
 		--entrypoint zsh \
 		$(IMAGE_NAME)
+
+ci:
+	echo "Cleaning up old test image..." && \
+	$(CONTAINER_RUNTIME) rmi $(IMAGE_NAME) 2>/dev/null || true && \
+	echo "Building fresh test image..." && \
+	$(CONTAINER_RUNTIME) build --no-cache -t $(IMAGE_NAME) . && \
+	echo "Running tests..." && \
+	$(CONTAINER_RUNTIME) run --rm \
+		-v "$(shell pwd):/app" \
+		-v "$(shell pwd)/.zshrc:/root/.zshrc:ro" \
+		$(IMAGE_NAME)
