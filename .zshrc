@@ -10,8 +10,6 @@ plugins=(
   # this one is too spastic for me...for now
   # zsh-autocomplete
   direnv
-  # or podman?
-  # docker
   # autocomplete script takes care of most of my needs for now
   # fzf
   git
@@ -27,6 +25,11 @@ setopt nosharehistory
 export PATH="$HOME/.local/bin:$PATH:/snap/bin"
 if which go &> /dev/null; then
   export PATH="$PATH:$(go env GOPATH)/bin"
+fi
+
+# podman fallback on Linux/Windows where docker isn't available
+if ! command -v docker &> /dev/null && command -v podman &> /dev/null; then
+  alias docker=podman
 fi
 
 # TODO: figure out why autoload didn't work here even w/ fpath

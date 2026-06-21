@@ -1,5 +1,6 @@
 #autoload
 
+# docker compose and podman compose share the same subcommand syntax
 alias dc="docker compose"
 alias vim="nvim"
 alias t="talosctl"
