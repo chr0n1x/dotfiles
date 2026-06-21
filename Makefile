@@ -32,23 +32,13 @@ macos-install:
 	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree fd stow zoxide tmux knqyf263/pet/pet
 	pip3 install virtualenv
 
-# TODO: clean this up, adding here for reference later
-linux:
-	# direnv - for all .envrc shell secrets, PER dir
-	# git - cause git
-	# zsh - my shell of choice
-	# ripgrep - faster grep
-	# fzf - nice fuzzy search
-	# bat - better cat
-	# tree - nice dir listing
-	# stow - for all .conf files and symlinks in my home directory
-	# zoxide - cd but with fuzzy matching
-	# tmux - cause what you doing without it
-	# cmake - for compiling nvim
-	# xsel - copy-paste from remote host to host terminal
-	# cifs-utils to mount things via fstab
-	sudo apt-get install direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup cifs-utils
+# Union of Dockerfile + linux target's packages (minus make) — for CI/container builds
+linux-packages:
+	apt-get update && apt-get install -y --no-install-recommends \
+	    build-essential ca-certificates curl direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup cifs-utils glow gum
 
+# TODO: clean this up, adding here for reference later
+linux: linux-packages
 	# pretty cli things
 	sudo mkdir -p /etc/apt/keyrings
 	curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
@@ -101,9 +91,13 @@ submodules-over-https:
 
 
 # TODO: install golang
-install-golang-tools:
+install-golang-tools: install-surf-cli
 	go install github.com/mikefarah/yq/v4@latest
 	go install github.com/JohannesKaufmann/html-to-markdown/v2/cli/html2markdown@latest
+
+
+install-surf-cli:
+	cd scripts/surf-cli && go mod tidy && go build -o $(HOME)/go/bin/surf-cli .
 
 
 # some LSP things require nodejs :(

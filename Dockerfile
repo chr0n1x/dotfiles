@@ -1,7 +1,8 @@
 FROM debian:trixie-slim
 
+# Build tools needed before COPY (git for clones, curl for OMZ)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl make ca-certificates zsh direnv zoxide \
+    git make zsh curl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 # Install zunit + revolver
@@ -18,6 +19,9 @@ RUN sh -c \
 
 WORKDIR /app
 COPY . /app
+
+# Full system package install via Makefile — mirrors a fresh machine setup
+RUN make linux-packages
 RUN make install-omz-plugins
 
 # Symlink so $HOME/.config points to /app/.config (where our scripts live)
