@@ -72,8 +72,8 @@ linux:
 
 	# AI things
 	curl -fsSL https://claude.ai/install.sh | bash
-	curl -fsSL https://ollama.com/install.sh | sh
-	sudo systemctl disable ollama # only use CLI
+	# curl -fsSL https://ollama.com/install.sh | sh
+	# sudo systemctl disable ollama # only use CLI
 
 # doesnt actually work - made to copy-paste
 install-krew:
