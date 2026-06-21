@@ -2,6 +2,8 @@ export ZSH="$HOME/.oh-my-zsh"
 export ZSH_THEME="gallifrey"
 export VI_MODE_SET_CURSOR=true
 
+DISABLE_AUTO_UPDATE=true
+
 plugins=(
   zsh-autosuggestions
   fast-syntax-highlighting
@@ -26,8 +28,6 @@ export PATH="$HOME/.local/bin:$PATH:/snap/bin"
 if which go &> /dev/null; then
   export PATH="$PATH:$(go env GOPATH)/bin"
 fi
-
-autoload -Uz compinit && compinit
 
 # TODO: figure out why autoload didn't work here even w/ fpath
 for script in ~/.config/zsh/scripts/*; do
