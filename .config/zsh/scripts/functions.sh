@@ -1,6 +1,6 @@
 function dex {
   if docker version &> /dev/null; then
-    docker run -v $(pwd):/root/workspace --workdir /root/workspace --rm -ti "$@"
+    docker run -v $PWD:/root/workspace --workdir /root/workspace --rm -ti "$@"
   else
     echo "Docker isn't installed or has not been started."
   fi

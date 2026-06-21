@@ -1,5 +1,4 @@
 #autoload
-#!/bin/bash
 
 # git aliases because my fingers are getting arthritis
 

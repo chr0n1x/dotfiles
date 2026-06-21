@@ -5,10 +5,10 @@
 #          source each of the files individually/explicitly
 if command -v brew >/dev/null 2>&1; then
   brew_prefix="$(brew --prefix)"
-  for i in $(ls "$brew_prefix/etc/profile.d/"); do
-    source "${brew_prefix}/etc/profile.d/$i"
+  for i in "$brew_prefix"/etc/profile.d/*; do
+    source $i
   done
-  source $(brew --prefix)/Cellar/fzf/$(fzf --version | cut -d ' ' -f 1)/shell/key-bindings.zsh
+  source $(brew --prefix)/share/fzf/shell/key-bindings.zsh
 fi
 
 if [ -f ~/.dir_colors ] && which dircolors &> /dev/null; then
