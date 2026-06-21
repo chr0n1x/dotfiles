@@ -40,3 +40,23 @@
   run grep -q 'alias docker=podman' ~/.zshrc
   assert $? equals 0
 }
+
+@test 'vi-mode is in plugins list' {
+  run sed -n '/^plugins=/,/^)/p' ~/.zshrc | grep -v '^ *#' | grep 'vi-mode' || true
+  assert "$output" is_empty --not
+}
+
+@test 'history options are set' {
+  run grep -q '^setopt noincappendhistory' ~/.zshrc && grep -q '^setopt nosharehistory' ~/.zshrc
+  assert $? equals 0
+}
+
+@test 'VI_MODE_SET_CURSOR is true' {
+  run grep -q '^export VI_MODE_SET_CURSOR=true' ~/.zshrc
+  assert $? equals 0
+}
+
+@test 'GOPATH is appended to PATH when Go is available' {
+  run zsh -c 'source ~/.zshrc 2>/dev/null; echo $PATH'
+  assert "$(go env GOPATH)/bin" is_substring_of "$output"
+}

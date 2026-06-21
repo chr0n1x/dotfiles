@@ -22,6 +22,11 @@ COPY . /app
 
 # Full system package install via Makefile — mirrors a fresh machine setup
 RUN make linux-packages
+
+# Install Go from upstream (same as go-install Makefile target)
+COPY scripts/install-go.sh /tmp/install-go.sh
+RUN bash /tmp/install-go.sh && rm /tmp/install-go.sh
+
 RUN make install-omz-plugins
 
 # Symlink so $HOME/.config points to /app/.config (where our scripts live)

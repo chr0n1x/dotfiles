@@ -37,8 +37,17 @@ linux-packages:
 	apt-get update && apt-get install -y --no-install-recommends \
 	    build-essential ca-certificates curl direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup cifs-utils glow gum
 
+
+# Install Go from upstream tarball
+go-install:
+	ARCH=$$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/'); \
+	curl -fsSL "https://go.dev/dl/go$$(go version | cut -d' ' -f3 | sed 's/^go//').linux-$${ARCH}.tar.gz" -o /tmp/go.tar.gz && \
+	sudo rm -rf /usr/local/go && \
+	sudo tar -C /usr/local -xzf /tmp/go.tar.gz && \
+	rm /tmp/go.tar.gz
+
 # TODO: clean this up, adding here for reference later
-linux: linux-packages
+linux: linux-packages go-install
 	# pretty cli things
 	sudo mkdir -p /etc/apt/keyrings
 	curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
