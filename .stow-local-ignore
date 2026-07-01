@@ -2,7 +2,7 @@
 # TODO: think of a nicer, simpler way of doing this
 \.travis.yml
 make
-scripts # this is windows powershell scripts
+scripts # this is windows powershell scripts and other utils that are installed via Makefile
 ^/Dockerfile
 ^/Makefile
 envrc.sample
