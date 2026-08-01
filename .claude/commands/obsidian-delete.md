@@ -36,7 +36,7 @@ if [ ! -d "${VAULT}/.obsidian" ]; then echo "ERROR: ${VAULT} is not a valid vaul
 /obsidian-delete tag "Note" --tag name
 ```
 
-Delegates to `/obsidian-update tag --remove`. Resolve note, remove from frontmatter + body, report.
+Delegates to `/obsidian-update tag --remove`. Resolve note, remove `[[name]]` and `#name` from body, report.
 
 ## Entity: link
 

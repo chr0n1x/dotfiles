@@ -23,15 +23,17 @@ if [ ! -d "${VAULT}/.obsidian" ]; then echo "ERROR: ${VAULT} is not a valid vaul
 /obsidian-read note --tag "tag"      # find by tag
 ```
 
-- **`--path`**: `cat "${VAULT}/${ARGUMENTS}"` (or use Read tool). Exit if not found.
+- **`--path`**: Use `Read` tool on `${VAULT}/${ARGUMENTS}`. Exit if not found.
 - **`--all`**: `find "${VAULT}" -type f \( -name "*.md" -o -name "*.qmd" \) | sed "s|^${VAULT}/||" | sort`
-- **`--tag`**: search both `#tag` and `[tag]` formats:
+- **`--tag`**: Search for `[[tag]]` wiki-links and `#tag` hash tags in body:
   ```bash
-  { rg -i -F "#${TAG}" "${VAULT}" --type md -l; rg -i -F "- ${TAG}" "${VAULT}" --type md -l; rg -i "tags:.*${TAG}" "${VAULT}" --type md -l; } 2>/dev/null | sort -u
+  { rg -i -F "[[${TAG}]" "${VAULT}" --type md -l; \
+    rg -i -F "#${TAG}" "${VAULT}" --type md -l; } 2>/dev/null | sort -u
   ```
-- **Search term** (default): content + filename search, deduplicate, show vault-relative paths:
+- **Search term** (default): content + filename search, deduplicate:
   ```bash
-  { rg -i --fixed-strings "$TERM" "${VAULT}" --type md -l; rg --files --glob "*${TERM}*.md" --glob-case-insensitive "${VAULT}"; } 2>/dev/null | sort -u
+  { rg -i --fixed-strings "$TERM" "${VAULT}" --type md -l; \
+    rg --files --glob "*${TERM}*.md" --glob-case-insensitive "${VAULT}"; } 2>/dev/null | sort -u
   ```
 
 Single match → display full content. Multiple → list paths, offer to read.
@@ -43,19 +45,19 @@ Single match → display full content. Multiple → list paths, offer to read.
 /obsidian-read tags "tag-name"      # show occurrences
 ```
 
-**All tags:** extract `#tag` (anywhere in body) and `[tag]` (line-start only, first 5 lines of each file to avoid help text):
+**All tags:** extract `#tag` (anywhere in body) and line-1 wiki-links (the subject tag):
 
 ```bash
 { rg -oh '#[\p{L}\p{N}_/-]+' "${VAULT}" --type md 2>/dev/null | sed 's/^#//'; \
-  find "${VAULT}" -type f -name "*.md" -exec head -5 {} \; \
-    | rg -oh '^\s*\[([A-Z][\w_-]*)\]' 2>/dev/null | sed 's/^[[:space:]]*\[\(.*\)\]/\1/'; } \
+  find "${VAULT}" -type f -name "*.md" -exec head -1 {} \; \
+    | rg -oh '^\[?[A-Z][\w_-]*\]?' 2>/dev/null | tr -d '[]'; } \
   | sort | uniq -c | sort -rn
 ```
 
-**Specific tag:** show with context (exclude code blocks):
+**Specific tag:** show with context:
 
 ```bash
-rg -i -n "#${TAG}" "${VAULT}" --type md -C 2 2>/dev/null | sed "s|${VAULT}/||"
+rg -i -n "#${TAG}|\[\[${TAG}\]\]" "${VAULT}" --type md -C 2 2>/dev/null | sed "s|${VAULT}/||"
 ```
 
 ## Entity: backlinks
@@ -77,7 +79,7 @@ Resolve note filename, then search for incoming wiki and markdown links (mimics 
 /obsidian-read links "note-name"
 ```
 
-Resolve note, extract outgoing links:
+Resolve note, extract outgoing wiki-links:
 
 ```bash
 rg -oh '\[\[[^]]+\]\]' "$NOTE_PATH" 2>/dev/null | sort -u

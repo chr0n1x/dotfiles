@@ -1,6 +1,6 @@
 ---
 description: Create a new note in the Obsidian vault
-argument-hint: note "Title" [--tags t1,t2] [--aliases a1,a2] [--dir path] [--content "text"]
+argument-hint: note "Title" [--tags t1,t2] [--dir path] [--content "text"]
 allowed-tools: Bash, Read, Write, Edit
 ---
 
@@ -16,13 +16,12 @@ if [ ! -d "${VAULT}/.obsidian" ]; then echo "ERROR: ${VAULT} is not a valid vaul
 
 ## Entity: note (default)
 
-Extract from `$ARGUMENTS`: `title` (required), `--tags`, `--aliases`, `--dir`, `--content`. Ask for title if missing.
+Extract from `$ARGUMENTS`: `title` (required), `--tags`, `--dir`, `--content`. Ask for title if missing.
 
 ### Check duplicates
 
 ```bash
 rg -i --fixed-strings "$title" "${VAULT}" --type md -l 2>/dev/null | head -5
-rg -i -F "id: ${title}" "${VAULT}" --type md -l 2>/dev/null
 ```
 
 If matches found, show them and ask whether to proceed.
@@ -38,20 +37,19 @@ Append `-2`, `-3`, etc. if file already exists. `mkdir -p` the parent dir.
 
 ### Write file
 
-Only include frontmatter blocks for fields that were provided. Omit empty `aliases`/`tags`.
+Format matches your vault convention: no frontmatter, subject on line 1 (this IS the primary tag), tags from `--tags` appended to line 1, then `====` underline and body.
 
 ```
----
-id: <title>
-aliases:
-  - <a1>
-tags:
-  - <t1>
----
-
-# <title>
+<Subject> [[tag1]] [[tag2]] <optional intro sentence>.
+====
 
 <content>
 ```
+
+Rules:
+- Line 1: Title capitalized, followed by space-separated wiki-linked tags from `--tags` (if any), optional intro text
+- Line 2: `====`
+- Blank line, then body/content
+- If no `--tags` and no content, just `<Subject>\n====\n\n`
 
 Report vault-relative path and what was written.

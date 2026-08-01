@@ -1,5 +1,5 @@
 ---
-description: Update entities in the Obsidian vault (tags, links, content, frontmatter)
+description: Update entities in the Obsidian vault (tags, links, content)
 argument-hint: <entity> "Note Name" <flags...>
 allowed-tools: Bash, Read, Write, Edit
 ---
@@ -23,19 +23,18 @@ Search by content + filename. Multiple matches → ask user. None → exit.
   rg --files --glob "*${NAME}*.md" --glob-case-insensitive "${VAULT}"; } 2>/dev/null | sort -u | head -5
 ```
 
-Read resolved file with `Read`. Note whether frontmatter exists.
+Read resolved file with `Read`.
 
 ## Entity: note (default)
 
 | Flag | Action |
 |---|---|
-| `--add-tag t1,t2` | Append to frontmatter `tags:` (skip dups). Create frontmatter if missing. |
-| `--remove-tag t1` | Remove from frontmatter and body (`#tag`/`[tag]`). Remove empty tags block. |
-| `--add-alias a1` | Append to frontmatter `aliases:` (skip dups). Create if missing. |
-| `--content "text"` | Replace body (preserve frontmatter). |
+| `--add-tag t1,t2` | Append `[[t1]] [[t2]]` to line 1 (subject tag line). Create line 1 if missing. |
+| `--remove-tag t1` | Remove `[[t1]]` and `#t1` from body text. Use `Edit`. |
+| `--content "text"` | Replace body (everything after `====`). |
 | `--append "text"` | Append to end of file (blank line separator). |
 | `--move "path/"` | Move file, update backlinks (see below). Use `git mv` if in repo. |
-| `--rename "Title"` | Update id, heading, filename. Update backlinks. |
+| `--rename "Title"` | Update line 1 subject and heading. Rename file. Update backlinks. |
 
 Use `Edit` for all modifications.
 
@@ -47,6 +46,10 @@ rg -l ")(${OLD}" "${VAULT}" --type md 2>/dev/null
 ```
 
 Ask confirmation before modifying other files. Use `Edit` to update references.
+
+### Report
+
+Show what was changed and which file(s) were modified.
 
 ## Entity: tag
 
