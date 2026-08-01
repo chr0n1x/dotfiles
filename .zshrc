@@ -13,8 +13,7 @@ plugins=(
   # autocomplete script takes care of most of my needs for now
   # fzf
   git
-  # eh...
-  # kubectl
+  kubectl
   vi-mode
 )
 source $ZSH/oh-my-zsh.sh
