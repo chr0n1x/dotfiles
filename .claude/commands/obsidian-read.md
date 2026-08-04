@@ -48,9 +48,9 @@ Single match → display full content. Multiple → list paths, offer to read.
 **All tags:** extract `#tag` (anywhere in body) and line-1 wiki-links (the subject tag):
 
 ```bash
-{ rg -oh '#[\p{L}\p{N}_/-]+' "${VAULT}" --type md 2>/dev/null | sed 's/^#//'; \
+{ rg -o '#[\p{L}\p{N}_/-]+' "${VAULT}" --type md 2>/dev/null | sed 's/^#//'; \
   find "${VAULT}" -type f -name "*.md" -exec head -1 {} \; \
-    | rg -oh '^\[?[A-Z][\w_-]*\]?' 2>/dev/null | tr -d '[]'; } \
+    | rg -o '^\[?[A-Z][\w_-]*\]?' 2>/dev/null | tr -d '[]'; } \
   | sort | uniq -c | sort -rn
 ```
 
@@ -82,5 +82,5 @@ Resolve note filename, then search for incoming wiki and markdown links (mimics 
 Resolve note, extract outgoing wiki-links:
 
 ```bash
-rg -oh '\[\[[^]]+\]\]' "$NOTE_PATH" 2>/dev/null | sort -u
+rg -o '\[\[[^]]+\]\]' "$NOTE_PATH" 2>/dev/null | sort -u
 ```
