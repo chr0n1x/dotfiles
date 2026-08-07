@@ -1,49 +1,50 @@
 {
-    "effortLevel": "xhigh",
-    "hooks": {
-        "Notification": [
-            {
-                "hooks": [
-                    {
-                        "command": "~/.config/tmux/plugins/tmux-agent-status/hooks/better-hook.sh Notification",
-                        "type": "command"
-                    }
-                ]
-            }
-        ],
-        "PreToolUse": [
-            {
-                "hooks": [
-                    {
-                        "command": "~/.config/tmux/plugins/tmux-agent-status/hooks/better-hook.sh PreToolUse",
-                        "type": "command"
-                    }
-                ]
-            }
-        ],
-        "Stop": [
-            {
-                "hooks": [
-                    {
-                        "command": "~/.config/tmux/plugins/tmux-agent-status/hooks/better-hook.sh Stop",
-                        "type": "command"
-                    }
-                ]
-            }
-        ],
-        "UserPromptSubmit": [
-            {
-                "hooks": [
-                    {
-                        "command": "~/.config/tmux/plugins/tmux-agent-status/hooks/better-hook.sh UserPromptSubmit",
-                        "type": "command"
-                    }
-                ]
-            }
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/tmux/plugins/tmux-agent-status/hooks/better-hook.sh Notification"
+          }
         ]
-    },
-    "permissions": {
-        "defaultMode": "auto"
-    },
-    "skipWorkflowUsageWarning": true
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/tmux/plugins/tmux-agent-status/hooks/better-hook.sh PreToolUse"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/tmux/plugins/tmux-agent-status/hooks/better-hook.sh Stop"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/tmux/plugins/tmux-agent-status/hooks/better-hook.sh UserPromptSubmit"
+          }
+        ]
+      }
+    ]
+  },
+  "effortLevel": "xhigh",
+  "skipWorkflowUsageWarning": true,
+  "autoCompactEnabled": true
 }

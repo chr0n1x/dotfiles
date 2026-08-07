@@ -46,8 +46,7 @@ Write a concise, accurate commit message following these rules (override with co
 Types (pick the most appropriate):
 - `feat` — new functionality or feature
 - `fix` — bug fix
-- `docs` — documentation changes
-- `chore` — config, deps, tooling changes
+- `chore` — docs, config, deps, tooling changes
 
 **Rules:**
 - Keep subject line under 72 characters
@@ -55,7 +54,8 @@ Types (pick the most appropriate):
 - Use imperative mood ("add" not "added")
 - No trailing period
 - If multiple unrelated changes exist, split into separate commits with clear messages for each
-- Read `$CLAUDE_MODEL`, shorten it (lowercase org/name, drop MTP/GGUF/UD), and add `Co-Authored-By: <shortened> <noreply@rannet.duckdns.org>` to the commit body. Examples: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q6_K` → `unsloth/qwen3.6-35b:Q6_K`; `claude-opus-4-8` → `opus-4.8`.
+- Read `$CLAUDE_MODEL`, shorten it (lowercase org/name, drop MTP/GGUF/UD), and add `AI Model: <shortened>` to the commit body as a standalone line. Examples: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q6_K` → `unsloth/qwen3.6-35b:Q6_K`; `claude-opus-4-8` → `opus-4.8`.
+- Add `Co-Authored-By: RannetAI <noreply@rannet.duckdns.org>` to the commit body as the last line. Blank line before it.
 
 **Example:**
 ```
@@ -69,14 +69,18 @@ Shorten the model name from `$CLAUDE_MODEL` using these rules: lowercase, drop `
 ```bash
 SHORT_MODEL="${CLAUDE_MODEL:-claude-code}"
 if [ "$SHORT_MODEL" != "claude-code" ]; then
-  SHORT_MODEL=$(echo "$SHORT_MODEL" | sed -E 's|claude-||; s|unsloth/||; s/-MTP//g; s/-GGUF//g; s|UD-||g; y|ABCDEFGHIJKLMNOPQRSTUVWXYZ|abcdefghijklmnopqrstuvwxyz|')
+  SHORT_MODEL="${SHORT_MODEL//-MTP/}"
+  SHORT_MODEL="${SHORT_MODEL//-GGUF/}"
+  SHORT_MODEL="${SHORT_MODEL//UD-/}"
 fi
 git commit -m "$(cat <<EOF
 <subject line>
 
 <body if needed>
 
-Co-Authored-By: $SHORT_MODEL <noreply@rannet.duckdns.org>
+AI Model: $SHORT_MODEL
+
+Co-Authored-By: RannetAI <noreply@rannet.duckdns.org>
 EOF
 )"
 ```

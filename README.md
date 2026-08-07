@@ -1,6 +1,8 @@
 dotfiles
 =========
 
+A personal dotfiles collection managed with `stow`. Easy to set up and extend.
+
 If you just want to run `nvim` though I highly recommend that you take a look at [my NeoVim starter template](https://github.com/chr0n1x/neovim-template) to begin your NeoVim journey 🥳
 
 # Requirements
