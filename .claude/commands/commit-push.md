@@ -89,7 +89,9 @@ If the user provided an override message, use it verbatim without adding Co-Auth
 
 ## Step 6: Push
 
-Push to the current branch's upstream:
+**IMPORTANT**: ask for user to confirm whether it's ok or not to push FIRST.
+
+If they clearly say it's ok to push - push to the current branch's upstream:
 
 ```bash
 git push
