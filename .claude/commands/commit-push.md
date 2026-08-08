@@ -89,7 +89,10 @@ If the user provided an override message, use it verbatim without adding Co-Auth
 
 ## Step 6: Push
 
-**IMPORTANT**: ask for user to confirm whether it's ok or not to push FIRST.
+**IMPORTANT**:
+- ask for user to confirm whether it's ok or not to push FIRST.
+- When asking - SHOW the user the full commit message (verbatim - subject, body and everything else) so they can evaluate what you just did.
+- surround the commit message that you're showing them with some decorators so it's easy to distinguish the message vs surrounding interactions.
 
 If they clearly say it's ok to push - push to the current branch's upstream:
 
