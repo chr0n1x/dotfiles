@@ -51,6 +51,10 @@ Ask confirmation before modifying other files. Use `Edit` to update references.
 
 Show what was changed and which file(s) were modified.
 
+## Index
+
+See `${OBSIDIAN_VAULT_PATH}/CLAUDE.md` ("Vault MCP server" section) for further instructions on reindexing — note that `--move`/`--rename` need an explicit reindex (they change paths and graph edges).
+
 ## Entity: tag
 
 Shortcut syntax — delegates to `note --add-tag` / `--remove-tag`.

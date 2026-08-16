@@ -84,3 +84,7 @@ Resolve note, extract outgoing wiki-links:
 ```bash
 rg -o '\[\[[^]]+\]\]' "$NOTE_PATH" 2>/dev/null | sort -u
 ```
+
+## Note on the MCP index
+
+These commands grep the vault directly and always reflect the current files. See `${OBSIDIAN_VAULT_PATH}/CLAUDE.md` ("Vault MCP server" section) for further instructions on the pre-indexed `search`/`tags`/`neighbors`/`get` tools — prefer those for repeated lookups when the server is connected, fall back to these greps otherwise.

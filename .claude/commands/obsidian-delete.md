@@ -30,6 +30,10 @@ if [ ! -d "${VAULT}/.obsidian" ]; then echo "ERROR: ${VAULT} is not a valid vaul
 4. **Delete:** `git rm` if in repo, else `rm`. Clean up empty parent dirs (stop at vault root).
 5. Report deletion and any orphaned backlinks.
 
+## Index
+
+See `${OBSIDIAN_VAULT_PATH}/CLAUDE.md` ("Vault MCP server" section) for further instructions on reindexing — deletions need an explicit reindex.
+
 ## Entity: tag
 
 ```

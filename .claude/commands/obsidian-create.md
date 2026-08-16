@@ -53,3 +53,7 @@ Rules:
 - If no `--tags` and no content, just `<Subject>\n====\n\n`
 
 Report vault-relative path and what was written.
+
+## Index
+
+See `${OBSIDIAN_VAULT_PATH}/CLAUDE.md` ("Vault MCP server" section) for further instructions on how the search index is kept current after writes.
