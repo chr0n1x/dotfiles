@@ -32,4 +32,7 @@ _darcs
 ^/LICENSE.*
 ^/COPYING
 
+# real file lives at top level; harnesses should symlink to it
+^/AGENTS\.md$
+
 \.nvimlog
