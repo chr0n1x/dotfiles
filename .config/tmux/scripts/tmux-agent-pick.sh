@@ -85,11 +85,24 @@ session_label() {
     name="${info##* }"
     case "$name" in
         claude)
-            # Session file maps pid -> sessionId; the real (ai-)title lives in
-            # the project jsonl, not in the session file's derived "name".
+            # A user rename lives in the session file's "name" (nameSource is
+            # absent or not "derived"). Prefer that; otherwise fall back to the
+            # ai-title in the project jsonl (the session file's derived name is
+            # not the real ai-title).
             f="$CLAUDE_SESSIONS/$pid.json"
             [ -f "$f" ] || return
-            sid=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('sessionId',''))" "$f" 2>/dev/null)
+            sid=$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+name=d.get('name','')
+if name and d.get('nameSource','') != 'derived':
+    print('\t'+name)          # leading tab flags a user-set name
+else:
+    print(d.get('sessionId','looked-up-below'))
+" "$f" 2>/dev/null)
+            case "$sid" in
+                $'\t'*) printf '%s' "${sid#$'\t'}"; return ;;
+            esac
             [ -n "$sid" ] || return
             proj=$(find "$CLAUDE_PROJECTS" -maxdepth 2 -name "$sid.jsonl" 2>/dev/null | head -1)
             [ -n "$proj" ] || return
