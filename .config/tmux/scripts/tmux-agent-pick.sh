@@ -302,7 +302,7 @@ script_path=$(resolve_path "$0")
 # line) into a handler that extracts the target and switches. All happens inside
 # the popup shell, so we don't need display-popup to return anything.
 fzf_cmd="bash $script_path --emit | fzf \
-  --ansi --no-sort --exact \
+  --ansi --no-sort --exact --cycle \
   --delimiter=' ' \
   --with-nth=4.. \
   --prompt=' search  ' \
