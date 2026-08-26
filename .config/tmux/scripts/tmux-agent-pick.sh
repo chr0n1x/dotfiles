@@ -17,7 +17,19 @@ CLAUDE_SESSIONS="$HOME/.claude/sessions"
 CLAUDE_PROJECTS="$HOME/.claude/projects"
 MAKI_SESSIONS="$HOME/.maki/sessions"
 COPILOT_STORE="$HOME/.copilot/session-store.db"
+COPILOT_STATE="$HOME/.copilot/session-state"
 AGENT_NAMES="claude maki aider codex devin opencode copilot cline"
+
+# Session-state dir for a copilot pid, or empty. Each live copilot session
+# drops an inuse.<pid>.lock in its own state dir, giving an exact pid->session
+# mapping (unlike cwd, which collides when two sessions share a directory).
+copilot_session_dir() {
+    local pid="$1" lock
+    [ -n "$pid" ] || return
+    lock=$(find "$COPILOT_STATE" -maxdepth 2 -name "inuse.$pid.lock" 2>/dev/null | head -1)
+    [ -n "$lock" ] || return
+    dirname "$lock"
+}
 
 # "pid name" for the agent process in a pane, or empty. $1 is the pane's shell
 # pid (pane_pid). One ps snapshot, one awk pass: computes the pane's whole
@@ -52,14 +64,30 @@ pane_agent_pid() {
 
 # working | idle | unknown. $1 is the precomputed "pid name" from pane_agent_pid
 # (may be empty). $2 is the pane's cwd (reserved for future use). claude uses
-# its own session file; copilot has no reliable status signal so returns unknown;
-# all other agents use the child-process check. No agent = idle.
+# its own session file; copilot uses its per-session events.jsonl turn markers;
+# maki and all other agents use the child-process check. No agent = idle.
 pane_status() {
     local info="$1" cwd="${2:-}" pid name kids
     [ -n "$info" ] || { echo idle; return; }
     pid="${info%% *}"
     name="${info##* }"
-    [ "$name" = copilot ] && { echo unknown; return; }
+    # copilot exposes turn lifecycle in its per-session events.jsonl. Map the
+    # pid -> session dir and read the last assistant.turn_start/turn_end marker:
+    # a start with no following end means a turn is in progress = working. No
+    # events file yet (fresh session) or a trailing end = idle. The child check
+    # is unusable for copilot: it spawns helper subprocesses even when idle.
+    if [ "$name" = copilot ]; then
+        local dir ev state
+        dir=$(copilot_session_dir "$pid")
+        [ -n "$dir" ] || { echo unknown; return; }
+        ev="$dir/events.jsonl"
+        [ -f "$ev" ] || { echo idle; return; }
+        state=$(tail -n 400 "$ev" 2>/dev/null | grep -oE '"assistant\.turn_(start|end)"' | tail -1)
+        case "$state" in
+            *turn_start*) echo working; return ;;
+            *)            echo idle; return ;;
+        esac
+    fi
     if [ "$name" = claude ]; then
         local f="$CLAUDE_SESSIONS/$pid.json" status
         if [ -f "$f" ]; then
@@ -72,7 +100,10 @@ pane_status() {
         fi
     fi
     # Portable child check: BSD ps (macOS) has no --ppid, so count ppid matches
-    # in a snapshot instead. Works on both GNU and BSD ps.
+    # in a snapshot instead. Works on both GNU and BSD ps. For maki this catches
+    # tool/bash execution (a real subprocess) but not pure text generation,
+    # which maki does in-process via its model backend with no observable
+    # per-pid signal.
     kids=$(ps -eo pid=,ppid= 2>/dev/null | awk -v p="$pid" '$2==p {c++} END {print c+0}')
     [ "${kids:-0}" -gt 0 ] && { echo working; return; }
     echo idle
@@ -125,22 +156,25 @@ else:
             printf ' %s' "$title"
             ;;
         copilot)
-            # No pid->session mapping exists; like maki, map cwd -> the most
-            # recently updated session and use its summary. Read-only so the
-            # live WAL db isn't disturbed.
+            # Map this pane's copilot pid -> its exact session via the inuse
+            # lock, then look up that session's summary by id. Mapping by cwd
+            # instead would grab the newest session sharing the directory, which
+            # shows a sibling session's title (or a stale one). Read-only open so
+            # the live WAL db isn't disturbed.
             [ -f "$COPILOT_STORE" ] || return
-            local cwd
-            cwd=$(tmux display-message -p -t "$pane_id" '#{pane_current_path}' 2>/dev/null)
-            [ -n "$cwd" ] || return
+            local dir sid
+            dir=$(copilot_session_dir "$pid")
+            [ -n "$dir" ] || return
+            sid=$(basename "$dir")
             title=$(python3 -c "
 import sqlite3,sys
 try:
     c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
-    r=c.execute('SELECT summary FROM sessions WHERE cwd=? AND summary IS NOT NULL AND summary<>\"\" ORDER BY updated_at DESC LIMIT 1',(sys.argv[2],)).fetchone()
-    print(r[0] if r else '')
+    r=c.execute('SELECT summary FROM sessions WHERE id=?',(sys.argv[2],)).fetchone()
+    print(r[0] if r and r[0] else '')
 except Exception:
     print('')
-" "$COPILOT_STORE" "$cwd" 2>/dev/null)
+" "$COPILOT_STORE" "$sid" 2>/dev/null)
             printf ' %s' "$title"
             ;;
     esac
