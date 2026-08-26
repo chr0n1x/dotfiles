@@ -122,7 +122,7 @@ else:
             f="$MAKI_SESSIONS/$sid.jsonl"
             [ -f "$f" ] || return
             title=$(grep '"t":"meta"' "$f" 2>/dev/null | tail -1 | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('title',''))" 2>/dev/null)
-            printf '%s' "$title"
+            printf ' %s' "$title"
             ;;
         copilot)
             # No pid->session mapping exists; like maki, map cwd -> the most
