@@ -13,6 +13,7 @@
 set -uo pipefail
 
 CLAUDE_SESSIONS="$HOME/.claude/sessions"
+CLAUDE_PROJECTS="$HOME/.claude/projects"
 MAKI_SESSIONS="$HOME/.maki/sessions"
 AGENT_NAMES="claude maki aider codex devin opencode copilot cline"
 
@@ -82,19 +83,29 @@ pane_status() {
 
 # Session name for a pane, or empty (caller falls back to window/session name).
 session_label() {
-    local pane_id="$1" info pid name f cwd sid title
+    local pane_id="$1" info pid name f sid title proj
     info=$(pane_agent_pid "$pane_id")
     [ -n "$info" ] || return
     pid="${info%% *}"
     name="${info##* }"
     case "$name" in
         claude)
+            # Session file maps pid -> sessionId; the real (ai-)title lives in
+            # the project jsonl, not in the session file's derived "name".
             f="$CLAUDE_SESSIONS/$pid.json"
             [ -f "$f" ] || return
-            python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('name',''))" "$f" 2>/dev/null
+            sid=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('sessionId',''))" "$f" 2>/dev/null)
+            [ -n "$sid" ] || return
+            proj=$(find "$CLAUDE_PROJECTS" -maxdepth 2 -name "$sid.jsonl" 2>/dev/null | head -1)
+            [ -n "$proj" ] || return
+            title=$(grep '"ai-title"' "$proj" 2>/dev/null | tail -1 | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('aiTitle',''))" 2>/dev/null)
+            printf '%s' "$title"
             ;;
         maki)
-            cwd=$(tmux display-message -p '#{pane_current_path}' -t "$pane_id" 2>/dev/null)
+            # Session id is the jsonl filename stem. cwd_latest.json maps
+            # cwd -> sid of the most recent session started in that dir.
+            local cwd
+            cwd=$(tmux display-message -p -t "$pane_id" '#{pane_current_path}' 2>/dev/null)
             [ -n "$cwd" ] || return
             sid=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],''))" "$MAKI_SESSIONS/cwd_latest.json" "$cwd" 2>/dev/null)
             [ -n "$sid" ] || return
@@ -106,22 +117,36 @@ session_label() {
     esac
 }
 
+# $1=status (working|idle), $2=selected pane? (1/0). The current pane gets a
+# star; other panes keep their shape. Color encodes agent state.
 status_icon() {
-    local c='\033[0m'
-    case "$1" in
-        working) printf '\033[33m\xe2\x97\x86\033[0m' ;;  # yellow ◆ (agent working)
-        idle)    printf '\033[32m\xe2\x97\x8f\033[0m' ;;  # green ● (agent idle, ready)
+    local star='★'
+    case "$1:$2" in
+        working:1) printf '\033[33m%s\033[0m' "$star" ;;  # yellow ★ (working, current)
+        working:*) printf '\033[33m\xe2\x97\x86\033[0m' ;;  # yellow ◆ (working)
+        idle:1)    printf '\033[32m%s\033[0m' "$star" ;;  # green ★ (idle, current)
+        idle:*)    printf '\033[32m\xe2\x97\x8f\033[0m' ;;  # green ● (idle)
     esac
 }
 
-# One row per pane: pin \t pane \t session:win \t icon \t marker label \t agent
+# Per-agent name color.
+agent_color() {
+    case "$1" in
+        claude)   printf '\033[38;2;240;150;95m%s\033[0m' "$1" ;;  # light rust
+        maki)     printf '\033[38;2;110;185;240m%s\033[0m' "$1" ;;  # light cerulean
+        copilot)  printf '\033[38;2;170;120;255m%s\033[0m' "$1" ;;  # purple
+        *)        printf '%s' "$1" ;;
+    esac
+}
+
+# One row per pane: pin \t pane \t session:win \t icon \t marker tmuxname \t dir \t agent \t agent-session-title
 emit_rows() {
     local fmt current_pane
     fmt=$(printf '#{session_name}\t#{window_index}\t#{pane_id}\t#{window_name}\t#{pane_current_path}')
     current_pane=$(tmux display-message -p '#{pane_id}' 2>/dev/null)
     tmux list-panes -a -F "$fmt" 2>/dev/null |
     while IFS=$'\t' read -r session win pane title cwd; do
-        local info pid agent status label marker icon dir
+        local info pid agent status label selected icon dir
         info=$(pane_agent_pid "$pane")
         if [ -n "$info" ]; then
             pid="${info%% *}"
@@ -131,18 +156,17 @@ emit_rows() {
             agent=""
             status=""
         fi
-        # Label: session name > window name (if non-numeric) > session name.
-        label=$(session_label "$pane")
-        case "$label" in
-            '')
-                case "$title" in
-                    ''|*[!0-9]*) label="$title" ;;
-                    *)           label="$session" ;;
-                esac
-                ;;
+        # Second column: tmux window name (non-numeric) or session name.
+        # Last column: agent session title, if the agent has one.
+        case "$title" in
+            ''|*[!0-9]*) label="$title" ;;
+            *)           label="$session" ;;
         esac
+        asession=$(session_label "$pane")
+        selected=0
+        [ "$pane" = "$current_pane" ] && selected=1
         if [ -n "$agent" ]; then
-            icon=$(status_icon "$status")
+            icon=$(status_icon "$status" "$selected")
         else
             icon=$(printf '\033[90m\xe2\x80\xa2\033[0m')
         fi
@@ -152,11 +176,27 @@ emit_rows() {
             "$HOME"/*)     dir="~${cwd#"$HOME"}" ;;
             *)            dir="$cwd" ;;
         esac
-        marker=""
-        if [ "$pane" = "$current_pane" ]; then marker="*"; pin=0; else pin=1; fi
-        printf '%s\t%s\t%s:%s\t%s\t%s %s\t%s\t%s\n' \
-            "$pin" "pane" "$session" "$win" "$icon" "$marker" "$label" "$(printf '\033[2m%s\033[0m' "$dir")" "$agent"
-    done | sort -t$'\t' -k1,1n -k4,4 -k5,5 | cut -f2- | column -t -s $'\t'
+        # Truncate the agent session title to fit the popup width. The popup
+        # is 70% of the terminal, so compute a budget from the actual width.
+        if [ -n "$asession" ]; then
+            local budget=$(( ${#label} + ${#dir} + ${#agent} + 34 ))
+            local w
+            w=$(tmux display-message -p '#{window_width}' 2>/dev/null) || w=180
+            [ "$w" -ge 10 ] 2>/dev/null || w=180
+            budget=$(( ${w} * 7 / 10 - budget ))
+            if [ "$budget" -lt 8 ]; then budget=8; fi
+            if [ "${#asession}" -gt "$budget" ]; then asession="${asession:0:$((budget-1))}…"; fi
+        fi
+        printf '%s\t%s:%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            "$selected" "pane" "$session" "$win" "$icon" "$label" "$(printf '\033[2m%s\033[0m' "$dir")" "$(agent_color "$agent")" "$asession"
+    done > /tmp/.tmux-agent-pick.$$
+    # Order: active pane first, then panes with a detected agent (by window
+    # index), then the rest. The pin column (field 1) is stripped last so the
+    # sort keys below stay aligned; field 8 is the agent name (empty = none).
+    { grep -a "^1	" /tmp/.tmux-agent-pick.$$ 2>/dev/null || true; \
+      grep -av "^1	" /tmp/.tmux-agent-pick.$$ 2>/dev/null | sort -t$'\t' -k8,8r -k3,3n -k5,5; } \
+      | cut -f2- | column -t -s $'\t'
+    rm -f /tmp/.tmux-agent-pick.$$
 }
 
 # Emit-only mode: used as fzf's input source and reload command.
@@ -177,6 +217,6 @@ fzf_cmd="bash $script_path --emit | fzf \
   --prompt=' search  ' \
   --bind=ctrl-j:down,ctrl-k:up \
   --bind=\"ctrl-r:reload(bash $script_path --emit)\" \
-  --layout=reverse --info=hidden | while read -r line; do [ -n \"\$line\" ] && { target=\$(printf '%s' \"\$line\" | awk '{print \$2}'); tmux switch-client -t \"\$target\" 2>/dev/null || tmux select-window -t \"\$target\"; }; done"
+  --info=hidden | while read -r line; do [ -n \"\$line\" ] && { target=\$(printf '%s' \"\$line\" | awk '{print \$2}'); tmux switch-client -t \"\$target\" 2>/dev/null || tmux select-window -t \"\$target\"; }; done"
 
 tmux display-popup -E -w 70% -h 50% -T " Agents " "$fzf_cmd"
