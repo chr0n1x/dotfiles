@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # Agent picker for tmux - replacement for the stock tmux-agent-status fzf
 # switcher (prefix S). The stock switcher passes --listen=<unix socket> to
 # fzf, which newer fzf builds reject ("invalid listen port"), so this is a
@@ -15,53 +16,45 @@ set -uo pipefail
 CLAUDE_SESSIONS="$HOME/.claude/sessions"
 CLAUDE_PROJECTS="$HOME/.claude/projects"
 MAKI_SESSIONS="$HOME/.maki/sessions"
+COPILOT_STORE="$HOME/.copilot/session-store.db"
 AGENT_NAMES="claude maki aider codex devin opencode copilot cline"
 
-# BFS over one ps snapshot; returns space-separated descendant pids of $1.
-_pane_subtree() {
-    local root_pid="$1" snapshot frontier subtree next pid kids
-    snapshot=$(ps -eo pid=,ppid= 2>/dev/null)
-    frontier="$root_pid"
-    subtree="$root_pid"
-    while [ -n "$frontier" ]; do
-        next=""
-        for pid in $frontier; do
-            kids=$(printf '%s\n' "$snapshot" | awk -v p="$pid" '$2==p {print $1}')
-            for k in $kids; do
-                case " $subtree " in *" $k "*) : ;; *) subtree="$subtree $k"; next="$next $k" ;; esac
-            done
-        done
-        frontier="${next# }"
-    done
-    printf '%s' "$subtree"
-}
-
-# "pid name" for the agent process in a pane, or empty. Scans the pane's whole
+# "pid name" for the agent process in a pane, or empty. $1 is the pane's shell
+# pid (pane_pid). One ps snapshot, one awk pass: computes the pane's whole
 # process subtree (descendants of the shell) so agents run inside nvim --embed
-# or tmux-in-tmux are still found.
+# or tmux-in-tmux are still found, then returns the first pid whose command
+# basename matches an agent name, honoring AGENT_NAMES priority order. Command
+# basename is stripped so it works on both GNU (comm=name) and BSD/macOS
+# (comm=/full/path) ps.
 pane_agent_pid() {
-    local pane_id="$1" root_pid snapshot name pid matched
-    root_pid=$(tmux list-panes -a -F "#{pane_pid} #{pane_id}" 2>/dev/null | awk -v p="$pane_id" '$2==p {print $1}')
+    local root_pid="$1"
     [ -n "$root_pid" ] || return
-    local subtree
-    subtree=$(_pane_subtree "$root_pid")
-    snapshot=$(ps -eo pid=,ppid=,comm= 2>/dev/null)
-    for name in $AGENT_NAMES; do
-        matched=$(printf '%s\n' "$snapshot" | SUBTREE="$subtree" awk -v n="$name" '
-            { pids[$1] = $3 }
-            END {
-                split(ENVIRON["SUBTREE"], s, " ")
-                for (i in s) if (pids[s[i]] == n) { print s[i]; exit }
-            }')
-        [ -n "$matched" ] && { printf '%s %s' "${matched%% *}" "$name"; return; }
-    done
+    ps -eo pid=,ppid=,comm= 2>/dev/null | awk -v root="$root_pid" -v names="$AGENT_NAMES" '
+        { pid[NR]=$1; ppid[$1]=$2; c=$3; sub(/.*\//,"",c); comm[$1]=c }
+        END {
+            n=split(names, order, " ")
+            desc[root]=1
+            changed=1
+            while (changed) {
+                changed=0
+                for (i=1;i<=NR;i++) {
+                    p=pid[i]
+                    if (!(p in desc) && (ppid[p] in desc)) { desc[p]=1; changed=1 }
+                }
+            }
+            for (k=1;k<=n;k++)
+                for (i=1;i<=NR;i++) {
+                    p=pid[i]
+                    if ((p in desc) && comm[p]==order[k]) { print p, order[k]; exit }
+                }
+        }'
 }
 
-# working | idle for a pane. claude uses its own session file status; all other
-# agents use the child-process check (has children = working). No agent = idle.
+# working | idle. $1 is the precomputed "pid name" from pane_agent_pid (may be
+# empty). claude uses its own session file status; all other agents use the
+# child-process check (has children = working). No agent = idle.
 pane_status() {
-    local pane_id="$1" info pid name kids
-    info=$(pane_agent_pid "$pane_id")
+    local info="$1" pid name kids
     [ -n "$info" ] || { echo idle; return; }
     pid="${info%% *}"
     name="${info##* }"
@@ -84,9 +77,9 @@ pane_status() {
 }
 
 # Session name for a pane, or empty (caller falls back to window/session name).
+# $1 is the precomputed "pid name" from pane_agent_pid; $2 is the pane_id.
 session_label() {
-    local pane_id="$1" info pid name f sid title proj
-    info=$(pane_agent_pid "$pane_id")
+    local info="$1" pane_id="$2" pid name f sid title proj
     [ -n "$info" ] || return
     pid="${info%% *}"
     name="${info##* }"
@@ -116,6 +109,25 @@ session_label() {
             title=$(grep '"t":"meta"' "$f" 2>/dev/null | tail -1 | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('title',''))" 2>/dev/null)
             printf '%s' "$title"
             ;;
+        copilot)
+            # No pid->session mapping exists; like maki, map cwd -> the most
+            # recently updated session and use its summary. Read-only so the
+            # live WAL db isn't disturbed.
+            [ -f "$COPILOT_STORE" ] || return
+            local cwd
+            cwd=$(tmux display-message -p -t "$pane_id" '#{pane_current_path}' 2>/dev/null)
+            [ -n "$cwd" ] || return
+            title=$(python3 -c "
+import sqlite3,sys
+try:
+    c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
+    r=c.execute('SELECT summary FROM sessions WHERE cwd=? AND summary IS NOT NULL AND summary<>\"\" ORDER BY updated_at DESC LIMIT 1',(sys.argv[2],)).fetchone()
+    print(r[0] if r else '')
+except Exception:
+    print('')
+" "$COPILOT_STORE" "$cwd" 2>/dev/null)
+            printf ' %s' "$title"
+            ;;
     esac
 }
 
@@ -125,9 +137,9 @@ status_icon() {
     local star='★'
     case "$1:$2" in
         working:1) printf '\033[33m%s\033[0m' "$star" ;;  # yellow ★ (working, current)
-        working:*) printf '\033[33m\xe2\x97\x86\033[0m' ;;  # yellow ◆ (working)
+        working:*) printf '\033[33m\xe2\x80\xa2\033[0m' ;;  # yellow • (working)
         idle:1)    printf '\033[32m%s\033[0m' "$star" ;;  # green ★ (idle, current)
-        idle:*)    printf '\033[32m\xe2\x97\x8f\033[0m' ;;  # green ● (idle)
+        idle:*)    printf '\033[32m\xe2\x80\xa2\033[0m' ;;  # green • (idle)
     esac
 }
 
@@ -144,16 +156,15 @@ agent_color() {
 # One row per pane: pin \t pane \t session:win \t icon \t marker tmuxname \t dir \t agent \t agent-session-title
 emit_rows() {
     local fmt current_pane
-    fmt=$(printf '#{session_name}\t#{window_index}\t#{pane_id}\t#{window_name}\t#{pane_current_path}')
+    fmt=$(printf '#{session_name}\t#{window_index}\t#{pane_id}\t#{window_name}\t#{pane_current_path}\t#{pane_pid}')
     current_pane=$(tmux display-message -p '#{pane_id}' 2>/dev/null)
     tmux list-panes -a -F "$fmt" 2>/dev/null |
-    while IFS=$'\t' read -r session win pane title cwd; do
-        local info pid agent status label selected icon dir
-        info=$(pane_agent_pid "$pane")
+    while IFS=$'\t' read -r session win pane title cwd panepid; do
+        local info agent status label selected icon dir
+        info=$(pane_agent_pid "$panepid")
         if [ -n "$info" ]; then
-            pid="${info%% *}"
             agent="${info##* }"
-            status=$(pane_status "$pane")
+            status=$(pane_status "$info")
         else
             agent=""
             status=""
@@ -164,7 +175,7 @@ emit_rows() {
             ''|*[!0-9]*) label="$title" ;;
             *)           label="$session" ;;
         esac
-        asession=$(session_label "$pane")
+        asession=$(session_label "$info" "$pane")
         selected=0
         [ "$pane" = "$current_pane" ] && selected=1
         if [ -n "$agent" ]; then
