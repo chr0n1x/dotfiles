@@ -76,7 +76,9 @@ pane_status() {
             esac
         fi
     fi
-    kids=$(ps --ppid "$pid" -o pid= 2>/dev/null | grep -c .) || true
+    # Portable child check: BSD ps (macOS) has no --ppid, so count ppid matches
+    # in a snapshot instead. Works on both GNU and BSD ps.
+    kids=$(ps -eo pid=,ppid= 2>/dev/null | awk -v p="$pid" '$2==p {c++} END {print c+0}')
     [ "${kids:-0}" -gt 0 ] && { echo working; return; }
     echo idle
 }
@@ -205,7 +207,18 @@ if [ "${1:-}" = "--emit" ]; then
     exit 0
 fi
 
-script_path=$(readlink -f "$0")
+# Portable realpath: macOS readlink lacks -f. Resolve symlinks by hand.
+resolve_path() {
+    local p="$1"
+    while [ -h "$p" ]; do
+        local dir link
+        dir=$(cd -P "$(dirname "$p")" >/dev/null 2>&1 && pwd)
+        link=$(readlink "$p")
+        case "$link" in /*) p="$link" ;; *) p="$dir/$link" ;; esac
+    done
+    printf '%s' "$p"
+}
+script_path=$(resolve_path "$0")
 
 # The popup command: pipe rows into fzf, then pipe fzf's stdout (the selected
 # line) into a handler that extracts the target and switches. All happens inside
