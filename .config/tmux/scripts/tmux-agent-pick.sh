@@ -50,21 +50,23 @@ pane_agent_pid() {
         }'
 }
 
-# working | idle. $1 is the precomputed "pid name" from pane_agent_pid (may be
-# empty). claude uses its own session file status; all other agents use the
-# child-process check (has children = working). No agent = idle.
+# working | idle | unknown. $1 is the precomputed "pid name" from pane_agent_pid
+# (may be empty). $2 is the pane's cwd (reserved for future use). claude uses
+# its own session file; copilot has no reliable status signal so returns unknown;
+# all other agents use the child-process check. No agent = idle.
 pane_status() {
-    local info="$1" pid name kids
+    local info="$1" cwd="${2:-}" pid name kids
     [ -n "$info" ] || { echo idle; return; }
     pid="${info%% *}"
     name="${info##* }"
+    [ "$name" = copilot ] && { echo unknown; return; }
     if [ "$name" = claude ]; then
         local f="$CLAUDE_SESSIONS/$pid.json" status
         if [ -f "$f" ]; then
             status=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('status',''))" "$f" 2>/dev/null)
             case "$status" in
-                running) echo working; return ;;
-                '') : ;; # unreadable/missing field: fall through to child check
+                busy)    echo working; return ;;
+                '')  : ;; # unreadable/missing field: fall through to child check
                 *)       echo idle; return ;;
             esac
         fi
@@ -149,10 +151,12 @@ except Exception:
 status_icon() {
     local star='★'
     case "$1:$2" in
-        working:1) printf '\033[33m%s\033[0m' "$star" ;;  # yellow ★ (working, current)
-        working:*) printf '\033[33m\xe2\x80\xa2\033[0m' ;;  # yellow • (working)
-        idle:1)    printf '\033[32m%s\033[0m' "$star" ;;  # green ★ (idle, current)
-        idle:*)    printf '\033[32m\xe2\x80\xa2\033[0m' ;;  # green • (idle)
+        working:1) printf '\033[33m%s\033[0m' "$star" ;;   # yellow ★ (working, current)
+        working:*) printf '\033[93m\xe2\x80\xa2\033[0m' ;; # bright yellow • (working)
+        idle:1)    printf '\033[32m%s\033[0m' "$star" ;;   # green ★ (idle, current)
+        idle:*)    printf '\033[32m\xe2\x9c\x93\033[0m' ;; # green ✓ (idle)
+        unknown:1) printf '\033[90m%s\033[0m' "$star" ;;   # gray ★ (unknown, current)
+        unknown:*) printf '\033[90m?\033[0m' ;;             # gray ? (unknown)
     esac
 }
 
@@ -177,7 +181,7 @@ emit_rows() {
         info=$(pane_agent_pid "$panepid")
         if [ -n "$info" ]; then
             agent="${info##* }"
-            status=$(pane_status "$info")
+            status=$(pane_status "$info" "$cwd")
         else
             agent=""
             status=""
@@ -194,7 +198,7 @@ emit_rows() {
         if [ -n "$agent" ]; then
             icon=$(status_icon "$status" "$selected")
         else
-            icon=$(printf '\033[90m\xe2\x80\xa2\033[0m')
+            icon=$(printf '\033[90m\xe2\x97\x8b\033[0m')
         fi
         # Show the working dir relative to $HOME for compactness.
         case "$cwd" in
