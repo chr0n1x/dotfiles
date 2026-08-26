@@ -20,15 +20,28 @@ COPILOT_STORE="$HOME/.copilot/session-store.db"
 COPILOT_STATE="$HOME/.copilot/session-state"
 AGENT_NAMES="claude maki aider codex devin opencode copilot cline"
 
-# Session-state dir for a copilot pid, or empty. Each live copilot session
-# drops an inuse.<pid>.lock in its own state dir, giving an exact pid->session
-# mapping (unlike cwd, which collides when two sessions share a directory).
+# Session-state dir for a copilot pid, or empty. A copilot process can hold
+# inuse.<pid>.lock files in several session dirs (resumed/switched sessions
+# leave stale locks), so the lock alone is ambiguous. The active session is the
+# one whose events.jsonl was most recently written; dirs with no events.jsonl
+# (fresh, never-active) lose. If none have events yet, fall back to the newest
+# lock. ls -t is used for mtime ordering so it works on both GNU and BSD.
 copilot_session_dir() {
-    local pid="$1" lock
+    local pid="$1" locks evs newest lock d
     [ -n "$pid" ] || return
-    lock=$(find "$COPILOT_STATE" -maxdepth 2 -name "inuse.$pid.lock" 2>/dev/null | head -1)
-    [ -n "$lock" ] || return
-    dirname "$lock"
+    locks=$(find "$COPILOT_STATE" -maxdepth 2 -name "inuse.$pid.lock" 2>/dev/null)
+    [ -n "$locks" ] || return
+    # events.jsonl for each locked dir that has one.
+    evs=$(printf '%s\n' "$locks" | while IFS= read -r lock; do
+        d=$(dirname "$lock"); [ -f "$d/events.jsonl" ] && printf '%s\n' "$d/events.jsonl"
+    done)
+    if [ -n "$evs" ]; then
+        newest=$(printf '%s\n' "$evs" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1)
+        [ -n "$newest" ] && { dirname "$newest"; return; }
+    fi
+    # No events anywhere: newest lock wins.
+    newest=$(printf '%s\n' "$locks" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1)
+    [ -n "$newest" ] && dirname "$newest"
 }
 
 # "pid name" for the agent process in a pane, or empty. $1 is the pane's shell
@@ -175,6 +188,9 @@ try:
 except Exception:
     print('')
 " "$COPILOT_STORE" "$sid" 2>/dev/null)
+            # No summary yet (fresh/unnamed session): fall back to the short
+            # session id so the row is still identifiable.
+            [ -n "$title" ] || title="${sid:0:8}"
             printf ' %s' "$title"
             ;;
     esac
