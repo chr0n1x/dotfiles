@@ -52,9 +52,9 @@ copilot_session_dir() {
 # basename is stripped so it works on both GNU (comm=name) and BSD/macOS
 # (comm=/full/path) ps.
 pane_agent_pid() {
-    local root_pid="$1"
+    local root_pid="$1" snap="$2"
     [ -n "$root_pid" ] || return
-    ps -eo pid=,ppid=,comm= 2>/dev/null | awk -v root="$root_pid" -v names="$AGENT_NAMES" '
+    printf '%s\n' "$snap" | awk -v root="$root_pid" -v names="$AGENT_NAMES" '
         { pid[NR]=$1; ppid[$1]=$2; c=$3; sub(/.*\//,"",c); comm[$1]=c }
         END {
             n=split(names, order, " ")
@@ -80,7 +80,7 @@ pane_agent_pid() {
 # its own session file; copilot uses its per-session events.jsonl turn markers;
 # maki and all other agents use the child-process check. No agent = idle.
 pane_status() {
-    local info="$1" cwd="${2:-}" pid name kids
+    local info="$1" cwd="${2:-}" snap="${3:-}" pid name kids
     [ -n "$info" ] || { echo idle; return; }
     pid="${info%% *}"
     name="${info##* }"
@@ -117,7 +117,7 @@ pane_status() {
     # tool/bash execution (a real subprocess) but not pure text generation,
     # which maki does in-process via its model backend with no observable
     # per-pid signal.
-    kids=$(ps -eo pid=,ppid= 2>/dev/null | awk -v p="$pid" '$2==p {c++} END {print c+0}')
+    kids=$(printf '%s\n' "$snap" | awk -v p="$pid" '$2==p {c++} END {print c+0}')
     [ "${kids:-0}" -gt 0 ] && { echo working; return; }
     echo idle
 }
@@ -220,63 +220,87 @@ agent_color() {
     esac
 }
 
+# One tab-delimited row for a single pane. Reads ps_snap/win_w/current_pane
+# from the enclosing emit_rows scope (inherited by the backgrounded subshell).
+pane_row() {
+    local session="$1" win="$2" pane="$3" title="$4" cwd="$5" panepid="$6"
+    local info agent status label selected icon dir asession budget
+    info=$(pane_agent_pid "$panepid" "$ps_snap")
+    if [ -n "$info" ]; then
+        agent="${info##* }"
+        status=$(pane_status "$info" "$cwd" "$ps_snap")
+    else
+        agent=""
+        status=""
+    fi
+    # Second column: tmux window name (non-numeric) or session name.
+    # Last column: agent session title, if the agent has one.
+    case "$title" in
+        ''|*[!0-9]*) label="$title" ;;
+        *)           label="$session" ;;
+    esac
+    asession=$(session_label "$info" "$pane")
+    selected=0
+    [ "$pane" = "$current_pane" ] && selected=1
+    if [ -n "$agent" ]; then
+        icon=$(status_icon "$status" "$selected")
+    else
+        icon=$(printf '\033[90m\xe2\x97\x8b\033[0m')
+    fi
+    # Show the working dir relative to $HOME for compactness.
+    case "$cwd" in
+        "$HOME")   dir="~" ;;
+        "$HOME"/*) dir="~${cwd#"$HOME"}" ;;
+        *)         dir="$cwd" ;;
+    esac
+    # Truncate the agent session title to fit the popup width (70% of terminal).
+    if [ -n "$asession" ]; then
+        budget=$(( ${#label} + ${#dir} + ${#agent} + 34 ))
+        budget=$(( win_w * 90 / 100 - budget ))
+        if [ "$budget" -lt 8 ]; then budget=8; fi
+        if [ "${#asession}" -gt "$budget" ]; then asession="${asession:0:$((budget-1))}…"; fi
+    fi
+    printf '%s\t%s:%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$selected" "pane" "$session" "$win" "$icon" "$label" "$(printf '\033[2m%s\033[0m' "$dir")" "$(agent_color "$agent")" "$asession"
+}
+
 # One row per pane: pin \t pane \t session:win \t icon \t marker tmuxname \t dir \t agent \t agent-session-title
 emit_rows() {
-    local fmt current_pane
+    local fmt current_pane ps_snap win_w tmpd n=0
     fmt=$(printf '#{session_name}\t#{window_index}\t#{pane_id}\t#{window_name}\t#{pane_current_path}\t#{pane_pid}')
     current_pane=$(tmux display-message -p '#{pane_id}' 2>/dev/null)
-    tmux list-panes -a -F "$fmt" 2>/dev/null |
+    # One ps snapshot and one width lookup for the whole run, threaded into the
+    # per-pane helpers below (previously each pane forked its own ps + tmux).
+    ps_snap=$(ps -eo pid=,ppid=,comm= 2>/dev/null)
+    win_w=$(tmux display-message -p '#{window_width}' 2>/dev/null) || win_w=180
+    [ "$win_w" -ge 10 ] 2>/dev/null || win_w=180
+    tmpd=$(mktemp -d "${TMPDIR:-/tmp}/tmux-agent-pick.XXXXXX") || return
+    # Each pane's row is independent (agent detection, status, title lookups),
+    # so compute them all in parallel. Zero-padded filenames keep the glob in
+    # pane order, so the stable sort below reproduces the serial ordering.
     while IFS=$'\t' read -r session win pane title cwd panepid; do
-        local info agent status label selected icon dir
-        info=$(pane_agent_pid "$panepid")
-        if [ -n "$info" ]; then
-            agent="${info##* }"
-            status=$(pane_status "$info" "$cwd")
-        else
-            agent=""
-            status=""
-        fi
-        # Second column: tmux window name (non-numeric) or session name.
-        # Last column: agent session title, if the agent has one.
-        case "$title" in
-            ''|*[!0-9]*) label="$title" ;;
-            *)           label="$session" ;;
-        esac
-        asession=$(session_label "$info" "$pane")
-        selected=0
-        [ "$pane" = "$current_pane" ] && selected=1
-        if [ -n "$agent" ]; then
-            icon=$(status_icon "$status" "$selected")
-        else
-            icon=$(printf '\033[90m\xe2\x97\x8b\033[0m')
-        fi
-        # Show the working dir relative to $HOME for compactness.
-        case "$cwd" in
-            "$HOME")      dir="~" ;;
-            "$HOME"/*)     dir="~${cwd#"$HOME"}" ;;
-            *)            dir="$cwd" ;;
-        esac
-        # Truncate the agent session title to fit the popup width. The popup
-        # is 70% of the terminal, so compute a budget from the actual width.
-        if [ -n "$asession" ]; then
-            local budget=$(( ${#label} + ${#dir} + ${#agent} + 34 ))
-            local w
-            w=$(tmux display-message -p '#{window_width}' 2>/dev/null) || w=180
-            [ "$w" -ge 10 ] 2>/dev/null || w=180
-            budget=$(( ${w} * 7 / 10 - budget ))
-            if [ "$budget" -lt 8 ]; then budget=8; fi
-            if [ "${#asession}" -gt "$budget" ]; then asession="${asession:0:$((budget-1))}…"; fi
-        fi
-        printf '%s\t%s:%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-            "$selected" "pane" "$session" "$win" "$icon" "$label" "$(printf '\033[2m%s\033[0m' "$dir")" "$(agent_color "$agent")" "$asession"
-    done > /tmp/.tmux-agent-pick.$$
+        n=$((n + 1))
+        pane_row "$session" "$win" "$pane" "$title" "$cwd" "$panepid" \
+            > "$tmpd/$(printf '%03d' "$n")" &
+    done < <(tmux list-panes -a -F "$fmt" 2>/dev/null)
+    wait
+    cat "$tmpd"/* 2>/dev/null > "$tmpd/all"
     # Order: active pane first, then panes with a detected agent (by window
     # index), then the rest. The pin column (field 1) is stripped last so the
     # sort keys below stay aligned; field 8 is the agent name (empty = none).
-    { grep -a "^1	" /tmp/.tmux-agent-pick.$$ 2>/dev/null || true; \
-      grep -av "^1	" /tmp/.tmux-agent-pick.$$ 2>/dev/null | sort -t$'\t' -k8,8r -k3,3n -k5,5; } \
-      | cut -f2- | column -t -s $'\t'
-    rm -f /tmp/.tmux-agent-pick.$$
+    { grep -a "^1	" "$tmpd/all" 2>/dev/null || true; \
+      grep -av "^1	" "$tmpd/all" 2>/dev/null | sort -s -t$'\t' -k8,8r -k3,3n -k5,5; } \
+      | cut -f2- > "$tmpd/ordered"
+    # ordered lines: target \t win \t icon \t label \t dir \t agent \t title.
+    # Column-align only the visible columns (win..title); keep the switch target
+    # as a separate leading field joined by a single tab. fzf hides field 1 via
+    # the tab delimiter, so the aligned block is shown verbatim. (Space-padding
+    # from column -t would otherwise make --with-nth land on different offsets
+    # for rows whose target width differs, e.g. a pane in the "scratch" session.)
+    paste -d'\t' \
+      <(cut -f1 "$tmpd/ordered") \
+      <(cut -f2- "$tmpd/ordered" | column -t -s $'\t')
+    rm -rf "$tmpd"
 }
 
 # Emit-only mode: used as fzf's input source and reload command.
@@ -301,13 +325,70 @@ script_path=$(resolve_path "$0")
 # The popup command: pipe rows into fzf, then pipe fzf's stdout (the selected
 # line) into a handler that extracts the target and switches. All happens inside
 # the popup shell, so we don't need display-popup to return anything.
-fzf_cmd="bash $script_path --emit | fzf \
-  --ansi --no-sort --exact --cycle \
-  --delimiter=' ' \
-  --with-nth=4.. \
-  --prompt=' search  ' \
-  --bind=ctrl-j:down,ctrl-k:up \
-  --bind=\"ctrl-r:reload(bash $script_path --emit)\" \
-  --info=hidden | while read -r line; do [ -n \"\$line\" ] && { target=\$(printf '%s' \"\$line\" | awk '{print \$2}'); tmux switch-client -t \"\$target\" 2>/dev/null || tmux select-window -t \"\$target\"; }; done"
+#
+# Loading UX: the initial list is pre-rendered (needed to size the popup, see
+# below), so it appears at once. On ctrl-r reload, --emit streams for a fraction
+# of a second, keeping fzf's stdin open so its native "streaming input
+# indicator" (the spinner shown by --info=inline-right) animates until the rows
+# arrive. The header names the harnesses/paths being scanned and is cleared on
+# the `load` event (fires when input finishes streaming).
+export AGENT_PICK_HEADER="loading  •  claude ~/.claude  •  maki ~/.maki  •  copilot ~/.copilot"
 
-tmux display-popup -E -w 70% -h 50% -T " Agents " "$fzf_cmd"
+# Size the popup to its content: render the rows once, measure the widest
+# visible line (ANSI stripped, counted in display columns) and the row count,
+# then derive width/height clamped to the client. fzf reads the same rows so
+# what we measured is what's shown; ctrl-r reload still re-runs --emit live.
+rows_file=$(mktemp "${TMPDIR:-/tmp}/tmux-agent-pick-rows.XXXXXX")
+emit_rows > "$rows_file" 2>/dev/null
+
+pop_w=""; pop_h=""
+dims=$(python3 - "$rows_file" <<'PY' 2>/dev/null
+import sys, re
+esc = re.compile(r'\x1b\[[0-9;]*m')
+maxw = n = 0
+with open(sys.argv[1], encoding='utf-8', errors='replace') as fh:
+    for line in fh:
+        line = line.rstrip('\n')
+        if not line:
+            continue
+        vis = line.split('\t', 1)[1] if '\t' in line else line
+        maxw = max(maxw, len(esc.sub('', vis)))
+        n += 1
+print(maxw, n)
+PY
+)
+if [ -n "$dims" ]; then
+    content_w=${dims%% *}
+    content_h=${dims##* }
+    cw=$(tmux display-message -p '#{client_width}' 2>/dev/null); [ "$cw" -ge 20 ] 2>/dev/null || cw=200
+    ch=$(tmux display-message -p '#{client_height}' 2>/dev/null); [ "$ch" -ge 8 ] 2>/dev/null || ch=50
+    # +6 cols: border (2), fzf pointer gutter (2), a little slack for the
+    # inline-right match count. +4 rows: border (2) + prompt line (1) + slack.
+    pop_w=$(( content_w + 6 ))
+    pop_h=$(( content_h + 4 ))
+    [ "$pop_w" -lt 40 ] && pop_w=40
+    [ "$pop_h" -lt 6 ]  && pop_h=6
+    [ "$pop_w" -gt $(( cw - 2 )) ] && pop_w=$(( cw - 2 ))
+    [ "$pop_h" -gt $(( ch - 2 )) ] && pop_h=$(( ch - 2 ))
+fi
+
+fzf_cmd="cat $rows_file | fzf \
+  --ansi --no-sort --exact --cycle \
+  --delimiter='\t' \
+  --with-nth=2.. \
+  --prompt=' search  ' \
+  --header=\"\$AGENT_PICK_HEADER\" \
+  --bind=ctrl-j:down,ctrl-k:up \
+  --bind='load:change-header:' \
+  --bind=\"ctrl-r:reload(bash $script_path --emit)\" \
+  --info=inline-right | while read -r line; do [ -n \"\$line\" ] && { target=\$(printf '%s' \"\$line\" | awk '{print \$2}'); tmux switch-client -t \"\$target\" 2>/dev/null || tmux select-window -t \"\$target\"; }; done"
+
+# display-popup -E blocks until the popup command exits, so clean up the
+# rendered-rows file here rather than inside the popup pipeline (where a
+# select-window switch can tear down the popup shell before it runs).
+if [ -n "$pop_w" ] && [ -n "$pop_h" ]; then
+    tmux display-popup -E -w "$pop_w" -h "$pop_h" -T " Agents " "$fzf_cmd"
+else
+    tmux display-popup -E -w 47% -h 33% -T " Agents " "$fzf_cmd"
+fi
+rm -f "$rows_file"
