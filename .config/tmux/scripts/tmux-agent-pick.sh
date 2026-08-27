@@ -309,6 +309,21 @@ if [ "${1:-}" = "--emit" ]; then
     exit 0
 fi
 
+# Switch mode: given a full emit line, switch the client to that window.
+# Field 1 (tab-delimited) is "pane:<session>"; the first whitespace token is
+# the window index. Using "<session>:<window>" makes cross-session switching
+# work (a bare window index can't resolve a window in another session).
+if [ "${1:-}" = "--switch" ]; then
+    line="${2:-}"
+    sess=$(printf '%s' "$line" | cut -f1 | sed 's/^pane://')
+    win=$(printf '%s' "$line" | awk '{print $2}')
+    [ -n "$win" ] && {
+        tmux switch-client -t "${sess}:${win}" 2>/dev/null \
+            || tmux select-window -t "$win" 2>/dev/null
+    }
+    exit 0
+fi
+
 # Portable realpath: macOS readlink lacks -f. Resolve symlinks by hand.
 resolve_path() {
     local p="$1"
@@ -372,6 +387,9 @@ if [ -n "$dims" ]; then
     [ "$pop_h" -gt $(( ch - 2 )) ] && pop_h=$(( ch - 2 ))
 fi
 
+# Remember where the client is now so Esc can restore it after previewing.
+orig_target=$(tmux display-message -p '#{session_name}:#{window_index}' 2>/dev/null)
+
 fzf_cmd="cat $rows_file | fzf \
   --ansi --no-sort --exact --cycle \
   --delimiter='\t' \
@@ -380,8 +398,10 @@ fzf_cmd="cat $rows_file | fzf \
   --header=\"\$AGENT_PICK_HEADER\" \
   --bind=ctrl-j:down,ctrl-k:up \
   --bind='load:change-header:' \
+  --bind=\"focus:execute-silent(bash $script_path --switch {})\" \
+  --bind=\"esc:execute-silent(tmux switch-client -t '$orig_target')+abort\" \
   --bind=\"ctrl-r:reload(bash $script_path --emit)\" \
-  --info=inline-right | while read -r line; do [ -n \"\$line\" ] && { target=\$(printf '%s' \"\$line\" | awk '{print \$2}'); tmux switch-client -t \"\$target\" 2>/dev/null || tmux select-window -t \"\$target\"; }; done"
+  --info=inline-right | while read -r line; do [ -n \"\$line\" ] && bash $script_path --switch \"\$line\"; done"
 
 # display-popup -E blocks until the popup command exits, so clean up the
 # rendered-rows file here rather than inside the popup pipeline (where a
