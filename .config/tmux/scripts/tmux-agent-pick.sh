@@ -324,6 +324,21 @@ if [ "${1:-}" = "--switch" ]; then
     exit 0
 fi
 
+# Kill mode: given a full emit line, confirm then kill that window.
+# Run via fzf's execute() (not execute-silent) so we have a tty to prompt on.
+if [ "${1:-}" = "--kill" ]; then
+    line="${2:-}"
+    sess=$(printf '%s' "$line" | cut -f1 | sed 's/^pane://')
+    win=$(printf '%s' "$line" | awk '{print $2}')
+    [ -z "$win" ] && exit 0
+    printf 'Kill window %s:%s? [y/N] ' "$sess" "$win" > /dev/tty
+    read -r ans < /dev/tty
+    case "$ans" in
+        [yY]*) tmux kill-window -t "${sess}:${win}" 2>/dev/null ;;
+    esac
+    exit 0
+fi
+
 # Portable realpath: macOS readlink lacks -f. Resolve symlinks by hand.
 resolve_path() {
     local p="$1"
@@ -347,7 +362,13 @@ script_path=$(resolve_path "$0")
 # indicator" (the spinner shown by --info=inline-right) animates until the rows
 # arrive. The header names the harnesses/paths being scanned and is cleared on
 # the `load` event (fires when input finishes streaming).
+# The header names the harnesses/paths being scanned while loading, then
+# switches to a key legend on the `load` event (fires when input finishes
+# streaming). The legend line is already reserved during loading, so swapping
+# it in costs no extra popup height.
 export AGENT_PICK_HEADER="loading  •  claude ~/.claude  •  maki ~/.maki  •  copilot ~/.copilot"
+legend="enter ⇄    esc ⊘    ^r ↻    ^k ⊗"
+export legend
 
 # Size the popup to its content: render the rows once, measure the widest
 # visible line (ANSI stripped, counted in display columns) and the row count,
@@ -378,9 +399,12 @@ if [ -n "$dims" ]; then
     cw=$(tmux display-message -p '#{client_width}' 2>/dev/null); [ "$cw" -ge 20 ] 2>/dev/null || cw=200
     ch=$(tmux display-message -p '#{client_height}' 2>/dev/null); [ "$ch" -ge 8 ] 2>/dev/null || ch=50
     # +6 cols: border (2), fzf pointer gutter (2), a little slack for the
-    # inline-right match count. +4 rows: border (2) + prompt line (1) + slack.
+    # inline-right match count. +7 rows: tmux border (2) + prompt (1) + header
+    # (1) + fzf bottom legend border (1) + slack (2).
     pop_w=$(( content_w + 6 ))
-    pop_h=$(( content_h + 4 ))
+    pop_h=$(( content_h + 7 ))
+    # Give the popup ~1.5x vertical breathing room over the bare content height.
+    pop_h=$(( pop_h * 3 / 2 ))
     [ "$pop_w" -lt 40 ] && pop_w=40
     [ "$pop_h" -lt 6 ]  && pop_h=6
     [ "$pop_w" -gt $(( cw - 2 )) ] && pop_w=$(( cw - 2 ))
@@ -396,12 +420,18 @@ fzf_cmd="cat $rows_file | fzf \
   --with-nth=2.. \
   --prompt=' search  ' \
   --header=\"\$AGENT_PICK_HEADER\" \
-  --bind=ctrl-j:down,ctrl-k:up \
+  --bind=ctrl-j:down \
   --bind='load:change-header:' \
   --bind=\"focus:execute-silent(bash $script_path --switch {})\" \
+  --bind=\"ctrl-k:execute(bash $script_path --kill {})+reload(bash $script_path --emit)\" \
   --bind=\"esc:execute-silent(tmux switch-client -t '$orig_target')+abort\" \
   --bind=\"ctrl-r:reload(bash $script_path --emit)\" \
-  --info=inline-right | while read -r line; do [ -n \"\$line\" ] && bash $script_path --switch \"\$line\"; done"
+  --info=inline-right \
+  --header-first \
+  --border=bottom \
+  --border-label=\"  \$legend  \" \
+  --border-label-pos=center \
+  --color=header:8,border:8,label:8 | while read -r line; do [ -n \"\$line\" ] && bash $script_path --switch \"\$line\"; done"
 
 # display-popup -E blocks until the popup command exits, so clean up the
 # rendered-rows file here rather than inside the popup pipeline (where a
@@ -421,8 +451,12 @@ pad=$(( (eff_w - 2 - ${#title}) / 2 ))
 line=$(printf '─%.0s' $(seq 1 "$pad"))
 ctitle="${line}${title}${line}"
 if [ -n "$pop_w" ] && [ -n "$pop_h" ]; then
-    tmux display-popup -E -w "$pop_w" -h "$pop_h" -T "$ctitle" "$fzf_cmd"
+    tmux display-popup -E -w "$pop_w" -h "$pop_h" \
+        -e "AGENT_PICK_HEADER=$AGENT_PICK_HEADER" -e "legend=$legend" \
+        -T "$ctitle" "$fzf_cmd"
 else
-    tmux display-popup -E -w 47% -h 33% -T "$ctitle" "$fzf_cmd"
+    tmux display-popup -E -w 47% -h 33% \
+        -e "AGENT_PICK_HEADER=$AGENT_PICK_HEADER" -e "legend=$legend" \
+        -T "$ctitle" "$fzf_cmd"
 fi
 rm -f "$rows_file"
