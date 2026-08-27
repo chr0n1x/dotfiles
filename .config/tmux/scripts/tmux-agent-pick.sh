@@ -406,9 +406,23 @@ fzf_cmd="cat $rows_file | fzf \
 # display-popup -E blocks until the popup command exits, so clean up the
 # rendered-rows file here rather than inside the popup pipeline (where a
 # select-window switch can tear down the popup shell before it runs).
+# tmux has no title-alignment flag. Center the title by padding it to the
+# popup's inner width, but pad with the border's horizontal line char (not
+# spaces, which would erase the top border) so the border stays continuous.
+title=" tmux windows "
 if [ -n "$pop_w" ] && [ -n "$pop_h" ]; then
-    tmux display-popup -E -w "$pop_w" -h "$pop_h" -T " Agents " "$fzf_cmd"
+    eff_w=$pop_w
 else
-    tmux display-popup -E -w 47% -h 33% -T " Agents " "$fzf_cmd"
+    cw=$(tmux display-message -p '#{client_width}' 2>/dev/null); [ "$cw" -ge 20 ] 2>/dev/null || cw=200
+    eff_w=$(( cw * 47 / 100 ))
+fi
+pad=$(( (eff_w - 2 - ${#title}) / 2 ))
+[ "$pad" -lt 1 ] && pad=1
+line=$(printf '─%.0s' $(seq 1 "$pad"))
+ctitle="${line}${title}${line}"
+if [ -n "$pop_w" ] && [ -n "$pop_h" ]; then
+    tmux display-popup -E -w "$pop_w" -h "$pop_h" -T "$ctitle" "$fzf_cmd"
+else
+    tmux display-popup -E -w 47% -h 33% -T "$ctitle" "$fzf_cmd"
 fi
 rm -f "$rows_file"
