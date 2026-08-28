@@ -369,6 +369,7 @@ script_path=$(resolve_path "$0")
 export AGENT_PICK_HEADER="loading  •  claude ~/.claude  •  maki ~/.maki  •  copilot ~/.copilot"
 legend="enter ⇄    esc ⊘    ^r ↻    ^k ⊗"
 export legend
+min_popup_width=80
 
 # Size the popup to its content: render the rows once, measure the widest
 # visible line (ANSI stripped, counted in display columns) and the row count,
@@ -398,6 +399,8 @@ if [ -n "$dims" ]; then
     content_h=${dims##* }
     cw=$(tmux display-message -p '#{client_width}' 2>/dev/null); [ "$cw" -ge 20 ] 2>/dev/null || cw=200
     ch=$(tmux display-message -p '#{client_height}' 2>/dev/null); [ "$ch" -ge 8 ] 2>/dev/null || ch=50
+    min_w=$min_popup_width
+    [ "$min_w" -lt $(( cw / 3 )) ] && min_w=$(( cw / 3 ))
     # +6 cols: border (2), fzf pointer gutter (2), a little slack for the
     # inline-right match count. +7 rows: tmux border (2) + prompt (1) + header
     # (1) + fzf bottom legend border (1) + slack (2).
@@ -405,6 +408,7 @@ if [ -n "$dims" ]; then
     pop_h=$(( content_h + 7 ))
     # Give the popup ~1.5x vertical breathing room over the bare content height.
     pop_h=$(( pop_h * 3 / 2 ))
+    [ "$pop_w" -lt "$min_w" ] && pop_w=$min_w
     [ "$pop_w" -lt 40 ] && pop_w=40
     [ "$pop_h" -lt 6 ]  && pop_h=6
     [ "$pop_w" -gt $(( cw - 2 )) ] && pop_w=$(( cw - 2 ))
@@ -445,6 +449,10 @@ if [ -n "$pop_w" ] && [ -n "$pop_h" ]; then
 else
     cw=$(tmux display-message -p '#{client_width}' 2>/dev/null); [ "$cw" -ge 20 ] 2>/dev/null || cw=200
     eff_w=$(( cw * 47 / 100 ))
+    min_w=$min_popup_width
+    [ "$min_w" -lt $(( cw / 3 )) ] && min_w=$(( cw / 3 ))
+    [ "$eff_w" -lt "$min_w" ] && eff_w=$min_w
+    [ "$eff_w" -gt $(( cw - 2 )) ] && eff_w=$(( cw - 2 ))
 fi
 pad=$(( (eff_w - 2 - ${#title}) / 2 ))
 [ "$pad" -lt 1 ] && pad=1
@@ -455,7 +463,7 @@ if [ -n "$pop_w" ] && [ -n "$pop_h" ]; then
         -e "AGENT_PICK_HEADER=$AGENT_PICK_HEADER" -e "legend=$legend" \
         -T "$ctitle" "$fzf_cmd"
 else
-    tmux display-popup -E -w 47% -h 33% \
+    tmux display-popup -E -w "$eff_w" -h 33% \
         -e "AGENT_PICK_HEADER=$AGENT_PICK_HEADER" -e "legend=$legend" \
         -T "$ctitle" "$fzf_cmd"
 fi
