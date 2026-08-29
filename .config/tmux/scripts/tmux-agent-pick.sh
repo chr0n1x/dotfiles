@@ -400,8 +400,15 @@ if [ "${1:-}" = "--switch" ]; then
     esac
     win=$(printf '%s' "$line" | cut -f2)
     [ -n "$win" ] && {
+        # Pane rows: switch to the window AND select the exact pane. Window-name
+        # rows only switch the window (no pane_id in the target).
+        case "$target" in
+            pane:*) paneid=${target##*:} ;;
+            *)      paneid="" ;;
+        esac
         tmux switch-client -t "${sess}:${win}" 2>/dev/null \
             || tmux select-window -t "$win" 2>/dev/null
+        [ -n "$paneid" ] && tmux select-pane -t "$paneid" 2>/dev/null
     }
     exit 0
 fi
