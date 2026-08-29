@@ -301,33 +301,32 @@ emit_rows() {
       grep -av "^1	" "$tmpd/all" 2>/dev/null | sort -s -t$'\t' -k7,7r -k3,3n -k6,6; } \
       | cut -f2- > "$tmpd/ordered"
     # ordered lines: target \t win \t name \t dir \t icon \t agent \t title \t cmd.
-    # Group by window (field 2) so each window's panes stay together even though
-    # the active-pane-first sort can interleave windows. For each group emit a
-    # header line then its pane lines. Header info: an agent name if any pane in
-    # the window has one, else the first pane's current command. Final layout:
-    # target \t win \t display. fzf hides fields 1-2 via --delimiter='\t'
-    # --with-nth=3.. and shows only the display column; --switch/--kill read the
-    # win field for both line types. The display keeps a fixed leading indent so
-    # --with-nth lands on the same offset for every row regardless of target width.
+    # Group by window index (field 2) so each window's panes stay together even
+    # though the active-pane-first / agent-desc sort can interleave windows. The
+    # first-seen order of windows is preserved; within a window, pane order is
+    # the sorted order. For each group emit its pane lines then the window-name
+    # line below them. Final layout: target \t win \t display. fzf hides fields
+    # 1-2 via --delimiter='\t' --with-nth=3.. and shows only the display column;
+    # --switch/--kill read the win field for both line types. The display keeps a
+    # fixed leading indent so --with-nth lands on the same offset for every row
+    # regardless of target width.
     awk -F'\t' '
-        function flush(   i) {
-            if (n == 0) return
-            # Window name goes below its panes; path and agent live on the pane
-            # rows above it.
-            for (i = 1; i <= n; i++) print pn[i]
-            print "win:" nm ":" winidx "\t" winidx "\t" nm
-            n = 0
-        }
         {
             w = $2
-            if (w != cur) { flush(); cur = w; winidx = w; nm = $3 }
-            n++
-            # Show the agent name if one is running, else fall back to the
-            # pane current command (best-effort process detection).
+            if (!(w in seen)) { seen[w] = 1; order[++nw] = w; nm[w] = $3 }
+            cnt[w]++
+            # Show the agent name if one is running, else fall back to the pane
+            # current command (best-effort process detection).
             if ($6 != "") proc = $6; else proc = $8
-            pn[n] = $1 "\t" $2 "\t      " $5 "\t" $4 "\t" proc "\t" $7
+            pn[w, cnt[w]] = $1 "\t" $2 "\t      " $5 "\t" $4 "\t" proc "\t" $7
         }
-        END { flush() }
+        END {
+            for (i = 1; i <= nw; i++) {
+                w = order[i]
+                for (j = 1; j <= cnt[w]; j++) print pn[w, j]
+                print "win:" nm[w] ":" w "\t" w "\t" nm[w]
+            }
+        }
     ' "$tmpd/ordered"
     rm -rf "$tmpd"
 }
