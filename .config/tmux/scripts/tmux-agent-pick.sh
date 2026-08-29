@@ -75,6 +75,49 @@ pane_agent_pid() {
         }'
 }
 
+# Kill the whole process subtree rooted at a pane's shell pid, so agents and
+# long-lived children (nvim --embed, podman-compose, ssh) don't outlive the
+# pane. $1 is the pane id. Snapshots ps once, walks descendants of the shell
+# pid, and kills them deepest-first (SIGTERM, then SIGKILL on stragglers). The
+# caller still runs tmux kill-pane/kill-window afterwards to remove the pane
+# from tmux's bookkeeping; by then the processes are already gone.
+kill_pane_tree() {
+    local pane="$1" shell_pid snap pids i pid
+    shell_pid=$(tmux display-message -p -t "$pane" '#{pane_pid}' 2>/dev/null)
+    [ -n "$shell_pid" ] || return
+    snap=$(ps -eo pid=,ppid= 2>/dev/null)
+    # All descendants of the shell pid (excluding the shell itself), deepest
+    # first so children die before their parents.
+    pids=$(printf '%s\n' "$snap" | awk -v root="$shell_pid" '
+        { pid[NR]=$1; ppid[$1]=$2 }
+        END {
+            desc[root]=1; changed=1
+            while (changed) { changed=0
+                for (i=1;i<=NR;i++) { p=pid[i]; if (!(p in desc) && (ppid[p] in desc)) { desc[p]=1; changed=1 } }
+            }
+            # collect descendants, sort by depth (deeper = more ancestors = first)
+            for (i=1;i<=NR;i++) { p=pid[i]; if ((p in desc) && p!=root) {
+                d=0; q=p; while (q!=root && q!="") { d++; q=ppid[q] }; depth[p]=d } }
+            n=0
+            for (p in depth) { n++; list[n]=p }
+            # simple insertion sort by depth desc
+            for (i=2;i<=n;i++) { v=list[i]; j=i-1
+                while (j>=1 && depth[list[j]]<depth[v]) { list[j+1]=list[j]; j-- }
+                list[j+1]=v }
+            for (i=1;i<=n;i++) print list[i]
+        }')
+    [ -n "$pids" ] || return
+    # SIGTERM the subtree, deepest first.
+    printf '%s\n' "$pids" | while IFS= read -r pid; do
+        kill -TERM "$pid" 2>/dev/null
+    done
+    # Give them a moment, then SIGKILL anything still alive.
+    sleep 0.3
+    printf '%s\n' "$pids" | while IFS= read -r pid; do
+        kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null
+    done
+}
+
 # working | idle | unknown. $1 is the precomputed "pid name" from pane_agent_pid
 # (may be empty). $2 is the pane's cwd (reserved for future use). claude uses
 # its own session file; copilot uses its per-session events.jsonl turn markers;
@@ -267,7 +310,7 @@ pane_row() {
     # intermittently re-applies a tab-bearing format to surplus args when arg
     # count != specifier count, which mangles rows whose title is empty.
     local tab=$'\t'
-    printf '%s\n' "${selected}${tab}pane:${session}${tab}${win}${tab}${label}${tab}${dir}${tab}${icon}${tab}$(agent_color "${agent:-}")${tab}${asession}${tab}${cmd}"
+    printf '%s\n' "${selected}${tab}pane:${session}:${pane}${tab}${win}${tab}${label}${tab}${dir}${tab}${icon}${tab}$(agent_color "${agent:-}")${tab}${asession}${tab}${cmd}"
 }
 
 # Tree of rows: one header line per window (name only) followed by its pane
@@ -313,7 +356,13 @@ emit_rows() {
     awk -F'\t' '
         {
             w = $2
-            if (!(w in seen)) { seen[w] = 1; order[++nw] = w; nm[w] = $3 }
+            if (!(w in seen)) {
+                seen[w] = 1; order[++nw] = w; nm[w] = $3
+                # Session name from the pane target (pane:<sess>:<pane_id>), for
+                # the win: line below - kill/switch need the session, not the
+                # window name or pane id.
+                sess = $1; sub(/^pane:/, "", sess); sub(/:.*/, "", sess); sn[w] = sess
+            }
             cnt[w]++
             # Show the agent name if one is running, else fall back to the pane
             # current command (best-effort process detection).
@@ -324,7 +373,7 @@ emit_rows() {
             for (i = 1; i <= nw; i++) {
                 w = order[i]
                 for (j = 1; j <= cnt[w]; j++) print pn[w, j]
-                print "win:" nm[w] ":" w "\t" w "\t" nm[w]
+                print "win:" sn[w] ":" w "\t" w "\t" nm[w]
             }
         }
     ' "$tmpd/ordered"
@@ -338,7 +387,7 @@ if [ "${1:-}" = "--emit" ]; then
 fi
 
 # Switch mode: given a full emit line, switch the client to that window.
-# Field 1 (tab-delimited) is "pane:<session>" for pane rows or
+# Field 1 (tab-delimited) is "pane:<session>:<pane_id>" for pane rows or
 # "win:<session>:<index>" for window header rows; field 2 is the window index
 # on both line types. Using "<session>:<window>" makes cross-session switching
 # work (a bare window index can't resolve a window in another session).
@@ -347,7 +396,7 @@ if [ "${1:-}" = "--switch" ]; then
     target=$(printf '%s' "$line" | cut -f1)
     case "$target" in
         win:*) sess=${target#win:}; sess=${sess%%:*} ;;  # drop the :<index> tail
-        *)     sess=${target#pane:} ;;
+        *)     sess=${target#pane:}; sess=${sess%%:*} ;;  # drop the :<pane_id> tail
     esac
     win=$(printf '%s' "$line" | cut -f2)
     [ -n "$win" ] && {
@@ -357,23 +406,43 @@ if [ "${1:-}" = "--switch" ]; then
     exit 0
 fi
 
-# Kill mode: given a full emit line, confirm then kill that window. Both row
-# types resolve to their window (pane rows kill the window containing the
-# pane), matching the pre-tree behavior. Run via fzf's execute() (not
-# execute-silent) so we have a tty to prompt on.
+# Kill mode: cursor on a pane row kills that pane; cursor on a window-name row
+# kills the whole window. Both first kill the process subtree(s) so agents and
+# long-lived children don't outlive the pane/window, then let tmux remove it.
+# Pane targets are "pane:<sess>:<pane_id>", window targets are "win:<sess>:<index>".
+# Run via fzf's execute() (not execute-silent) so we have a tty to prompt on.
 if [ "${1:-}" = "--kill" ]; then
     line="${2:-}"
     target=$(printf '%s' "$line" | cut -f1)
     case "$target" in
-        win:*) sess=${target#win:}; sess=${sess%%:*} ;;  # drop the :<index> tail
-        *)     sess=${target#pane:} ;;
-    esac
-    win=$(printf '%s' "$line" | cut -f2)
-    [ -z "$win" ] && exit 0
-    printf 'Kill window %s:%s? [y/N] ' "$sess" "$win" > /dev/tty
-    read -r ans < /dev/tty
-    case "$ans" in
-        [yY]*) tmux kill-window -t "${sess}:${win}" 2>/dev/null ;;
+        win:*)
+            sess=${target#win:}; sess=${sess%%:*}
+            win=${target##*:}
+            printf 'Kill window %s:%s? [y/N] ' "$sess" "$win" > /dev/tty
+            read -r ans < /dev/tty
+            case "$ans" in
+                [yY]*)
+                    # Kill every pane's process tree in the window, then remove it.
+                    for p in $(tmux list-panes -t "${sess}:${win}" -F '#{pane_id}' 2>/dev/null); do
+                        kill_pane_tree "$p"
+                    done
+                    tmux kill-window -t "${sess}:${win}" 2>/dev/null
+                    ;;
+            esac
+            ;;
+        *)
+            # pane:<sess>:<pane_id> - kill just this pane.
+            rest=${target#pane:}
+            paneid=${rest##*:}
+            printf 'Kill pane %s? [y/N] ' "$paneid" > /dev/tty
+            read -r ans < /dev/tty
+            case "$ans" in
+                [yY]*)
+                    kill_pane_tree "$paneid"
+                    tmux kill-pane -t "$paneid" 2>/dev/null
+                    ;;
+            esac
+            ;;
     esac
     exit 0
 fi
