@@ -313,8 +313,9 @@ pane_row() {
     printf '%s\n' "${selected}${tab}pane:${session}:${pane}${tab}${win}${tab}${label}${tab}${dir}${tab}${icon}${tab}$(agent_color "${agent:-}")${tab}${asession}${tab}${cmd}"
 }
 
-# Tree of rows: one header line per window (name only) followed by its pane
-# lines (icon, path, agent-or-command). Pane-row fields before grouping:
+# Tree of rows: one header line per window (name only), then its pane lines
+# below with ├─/└─ tree connectors on the left (htop-style).
+# Pane-row fields before grouping:
 # pin \t pane:<sess> \t win \t name \t dir \t icon \t agent \t title \t cmd.
 emit_rows() {
     local fmt current_pane ps_snap win_w tmpd n=0
@@ -347,12 +348,13 @@ emit_rows() {
     # Group by window index (field 2) so each window's panes stay together even
     # though the active-pane-first / agent-desc sort can interleave windows. The
     # first-seen order of windows is preserved; within a window, pane order is
-    # the sorted order. For each group emit its pane lines then the window-name
-    # line below them. Final layout: target \t win \t display. fzf hides fields
-    # 1-2 via --delimiter='\t' --with-nth=3.. and shows only the display column;
-    # --switch/--kill read the win field for both line types. The display keeps a
-    # fixed leading indent so --with-nth lands on the same offset for every row
-    # regardless of target width.
+    # the sorted order. For each group emit the window-name line first, then its
+    # pane lines below with ├─/└─ tree connectors on the left (htop-style).
+    # Final layout: target \t win \t display. fzf hides fields 1-2 via
+    # --delimiter='\t' --with-nth=3.. and shows only the display column;
+    # --switch/--kill read the win field for both line types. The pane-row display
+    # starts with a fixed 4-col connector (├─ / └─ + space) so the icon column
+    # lines up vertically across all panes in the popup.
     awk -F'\t' '
         {
             w = $2
@@ -367,13 +369,32 @@ emit_rows() {
             # Show the agent name if one is running, else fall back to the pane
             # current command (best-effort process detection).
             if ($6 != "") proc = $6; else proc = $8
-            pn[w, cnt[w]] = $1 "\t" $2 "\t      " $5 "\t" $4 "\t" proc "\t" $7
+            pn[w, cnt[w]] = $1 "\t" $2 "\t" $5 "\t" $4 "\t" proc "\t" $7
         }
         END {
             for (i = 1; i <= nw; i++) {
                 w = order[i]
-                for (j = 1; j <= cnt[w]; j++) print pn[w, j]
+                # Window-name line first (top level, no glyph), then its panes
+                # below with ├─ for all but the last pane and └─ for the last.
+                # Conventional htop order: the branch ends at the final pane.
+                # The connector is exactly 4 display columns (2-byte box char +
+                # 2 spaces) so the icon column lines up across every pane row.
+                # Window-name line flush left; pane rows below it are indented so
+                # the tree glyph sits under the middle of the title, not at the
+                # far left edge.
                 print "win:" sn[w] ":" w "\t" w "\t" nm[w]
+                for (j = 1; j <= cnt[w]; j++) {
+                    br = (j < cnt[w]) ? "  ├─ " : "  └─ "
+                    # Prepend the indent + connector to the icon, and glue the
+                    # dir onto the same field with a fixed 2-space gap (not a tab)
+                    # so the icon-to-dir spacing is constant instead of jumping
+                    # to the next tab stop. pn fields: f[3]=icon f[4]=dir
+                    # f[5]=agent f[6]=title.
+                    n = split(pn[w, j], f, "\t")
+                    out = f[1] "\t" f[2] "\t" br f[3] "  " f[4]
+                    for (k = 5; k <= n; k++) out = out "\t" f[k]
+                    print out
+                }
             }
         }
     ' "$tmpd/ordered"
@@ -538,6 +559,7 @@ orig_target=$(tmux display-message -p '#{session_name}:#{window_index}' 2>/dev/n
 
 fzf_cmd="cat $rows_file | fzf \
   --ansi --no-sort --exact --cycle \
+  --layout=reverse \
   --delimiter='\t' \
   --with-nth=3.. \
   --prompt=' search  ' \
