@@ -166,7 +166,7 @@ else:
             f="$MAKI_SESSIONS/$sid.jsonl"
             [ -f "$f" ] || return
             title=$(grep '"t":"meta"' "$f" 2>/dev/null | tail -1 | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('title',''))" 2>/dev/null)
-            printf ' %s' "$title"
+            printf '%s' "$title"
             ;;
         copilot)
             # Map this pane's copilot pid -> its exact session via the inuse
@@ -191,7 +191,7 @@ except Exception:
             # No summary yet (fresh/unnamed session): fall back to the short
             # session id so the row is still identifiable.
             [ -n "$title" ] || title="${sid:0:8}"
-            printf ' %s' "$title"
+            printf '%s' "$title"
             ;;
     esac
 }
@@ -222,9 +222,12 @@ agent_color() {
 
 # One tab-delimited row for a single pane. Reads ps_snap/win_w/current_pane
 # from the enclosing emit_rows scope (inherited by the backgrounded subshell).
+# Fields: pin, target(pane:<sess>), win, window-name-or-sessname, dir, icon,
+# agent, title. The name+dir are carried per pane so emit_rows can build the
+# window header from its first pane row.
 pane_row() {
-    local session="$1" win="$2" pane="$3" title="$4" cwd="$5" panepid="$6"
-    local info agent status label selected icon dir asession budget
+    local session="$1" win="$2" pane="$3" title="$4" cwd="$5" panepid="$6" cmd="${7:-}"
+    local info agent status selected icon asession budget label dir
     info=$(pane_agent_pid "$panepid" "$ps_snap")
     if [ -n "$info" ]; then
         agent="${info##* }"
@@ -233,12 +236,6 @@ pane_row() {
         agent=""
         status=""
     fi
-    # Second column: tmux window name (non-numeric) or session name.
-    # Last column: agent session title, if the agent has one.
-    case "$title" in
-        ''|*[!0-9]*) label="$title" ;;
-        *)           label="$session" ;;
-    esac
     asession=$(session_label "$info" "$pane")
     selected=0
     [ "$pane" = "$current_pane" ] && selected=1
@@ -247,27 +244,38 @@ pane_row() {
     else
         icon=$(printf '\033[90m\xe2\x97\x8b\033[0m')
     fi
-    # Show the working dir relative to $HOME for compactness.
+    # Window label: tmux window name (non-numeric) or session name.
+    case "$title" in
+        ''|*[!0-9]*) label="$title" ;;
+        *)           label="$session" ;;
+    esac
+    # Show the working dir relative to $HOME for compactness, dimmed.
     case "$cwd" in
         "$HOME")   dir="~" ;;
         "$HOME"/*) dir="~${cwd#"$HOME"}" ;;
         *)         dir="$cwd" ;;
     esac
-    # Truncate the agent session title to fit the popup width (70% of terminal).
+    dir=$(printf '\033[2m%s\033[0m' "$dir")
+    # Truncate the agent session title to fit the popup width (90% of window).
     if [ -n "$asession" ]; then
-        budget=$(( ${#label} + ${#dir} + ${#agent} + 34 ))
+        budget=$(( ${#agent} + 34 ))
         budget=$(( win_w * 90 / 100 - budget ))
         if [ "$budget" -lt 8 ]; then budget=8; fi
         if [ "${#asession}" -gt "$budget" ]; then asession="${asession:0:$((budget-1))}…"; fi
     fi
-    printf '%s\t%s:%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-        "$selected" "pane" "$session" "$win" "$icon" "$label" "$(printf '\033[2m%s\033[0m' "$dir")" "$(agent_color "$agent")" "$asession"
+    # Build the row with a tab variable, not a printf format string: this bash
+    # intermittently re-applies a tab-bearing format to surplus args when arg
+    # count != specifier count, which mangles rows whose title is empty.
+    local tab=$'\t'
+    printf '%s\n' "${selected}${tab}pane:${session}${tab}${win}${tab}${label}${tab}${dir}${tab}${icon}${tab}$(agent_color "${agent:-}")${tab}${asession}${tab}${cmd}"
 }
 
-# One row per pane: pin \t pane \t session:win \t icon \t marker tmuxname \t dir \t agent \t agent-session-title
+# Tree of rows: one header line per window (name only) followed by its pane
+# lines (icon, path, agent-or-command). Pane-row fields before grouping:
+# pin \t pane:<sess> \t win \t name \t dir \t icon \t agent \t title \t cmd.
 emit_rows() {
     local fmt current_pane ps_snap win_w tmpd n=0
-    fmt=$(printf '#{session_name}\t#{window_index}\t#{pane_id}\t#{window_name}\t#{pane_current_path}\t#{pane_pid}')
+    fmt=$(printf '#{session_name}\t#{window_index}\t#{pane_id}\t#{window_name}\t#{pane_current_path}\t#{pane_pid}\t#{pane_current_command}')
     current_pane=$(tmux display-message -p '#{pane_id}' 2>/dev/null)
     # One ps snapshot and one width lookup for the whole run, threaded into the
     # per-pane helpers below (previously each pane forked its own ps + tmux).
@@ -278,28 +286,49 @@ emit_rows() {
     # Each pane's row is independent (agent detection, status, title lookups),
     # so compute them all in parallel. Zero-padded filenames keep the glob in
     # pane order, so the stable sort below reproduces the serial ordering.
-    while IFS=$'\t' read -r session win pane title cwd panepid; do
+    while IFS=$'\t' read -r session win pane title cwd panepid cmd; do
         n=$((n + 1))
-        pane_row "$session" "$win" "$pane" "$title" "$cwd" "$panepid" \
+        pane_row "$session" "$win" "$pane" "$title" "$cwd" "$panepid" "$cmd" \
             > "$tmpd/$(printf '%03d' "$n")" &
     done < <(tmux list-panes -a -F "$fmt" 2>/dev/null)
     wait
     cat "$tmpd"/* 2>/dev/null > "$tmpd/all"
     # Order: active pane first, then panes with a detected agent (by window
     # index), then the rest. The pin column (field 1) is stripped last so the
-    # sort keys below stay aligned; field 8 is the agent name (empty = none).
+    # sort keys below stay aligned; field 3 is the window index, field 7 the
+    # agent name (empty = none).
     { grep -a "^1	" "$tmpd/all" 2>/dev/null || true; \
-      grep -av "^1	" "$tmpd/all" 2>/dev/null | sort -s -t$'\t' -k8,8r -k3,3n -k5,5; } \
+      grep -av "^1	" "$tmpd/all" 2>/dev/null | sort -s -t$'\t' -k7,7r -k3,3n -k6,6; } \
       | cut -f2- > "$tmpd/ordered"
-    # ordered lines: target \t win \t icon \t label \t dir \t agent \t title.
-    # Column-align only the visible columns (win..title); keep the switch target
-    # as a separate leading field joined by a single tab. fzf hides field 1 via
-    # the tab delimiter, so the aligned block is shown verbatim. (Space-padding
-    # from column -t would otherwise make --with-nth land on different offsets
-    # for rows whose target width differs, e.g. a pane in the "scratch" session.)
-    paste -d'\t' \
-      <(cut -f1 "$tmpd/ordered") \
-      <(cut -f2- "$tmpd/ordered" | column -t -s $'\t')
+    # ordered lines: target \t win \t name \t dir \t icon \t agent \t title \t cmd.
+    # Group by window (field 2) so each window's panes stay together even though
+    # the active-pane-first sort can interleave windows. For each group emit a
+    # header line then its pane lines. Header info: an agent name if any pane in
+    # the window has one, else the first pane's current command. Final layout:
+    # target \t win \t display. fzf hides fields 1-2 via --delimiter='\t'
+    # --with-nth=3.. and shows only the display column; --switch/--kill read the
+    # win field for both line types. The display keeps a fixed leading indent so
+    # --with-nth lands on the same offset for every row regardless of target width.
+    awk -F'\t' '
+        function flush(   i) {
+            if (n == 0) return
+            # Window name goes below its panes; path and agent live on the pane
+            # rows above it.
+            for (i = 1; i <= n; i++) print pn[i]
+            print "win:" nm ":" winidx "\t" winidx "\t" nm
+            n = 0
+        }
+        {
+            w = $2
+            if (w != cur) { flush(); cur = w; winidx = w; nm = $3 }
+            n++
+            # Show the agent name if one is running, else fall back to the
+            # pane current command (best-effort process detection).
+            if ($6 != "") proc = $6; else proc = $8
+            pn[n] = $1 "\t" $2 "\t      " $5 "\t" $4 "\t" proc "\t" $7
+        }
+        END { flush() }
+    ' "$tmpd/ordered"
     rm -rf "$tmpd"
 }
 
@@ -310,13 +339,18 @@ if [ "${1:-}" = "--emit" ]; then
 fi
 
 # Switch mode: given a full emit line, switch the client to that window.
-# Field 1 (tab-delimited) is "pane:<session>"; the first whitespace token is
-# the window index. Using "<session>:<window>" makes cross-session switching
+# Field 1 (tab-delimited) is "pane:<session>" for pane rows or
+# "win:<session>:<index>" for window header rows; field 2 is the window index
+# on both line types. Using "<session>:<window>" makes cross-session switching
 # work (a bare window index can't resolve a window in another session).
 if [ "${1:-}" = "--switch" ]; then
     line="${2:-}"
-    sess=$(printf '%s' "$line" | cut -f1 | sed 's/^pane://')
-    win=$(printf '%s' "$line" | awk '{print $2}')
+    target=$(printf '%s' "$line" | cut -f1)
+    case "$target" in
+        win:*) sess=${target#win:}; sess=${sess%%:*} ;;  # drop the :<index> tail
+        *)     sess=${target#pane:} ;;
+    esac
+    win=$(printf '%s' "$line" | cut -f2)
     [ -n "$win" ] && {
         tmux switch-client -t "${sess}:${win}" 2>/dev/null \
             || tmux select-window -t "$win" 2>/dev/null
@@ -324,12 +358,18 @@ if [ "${1:-}" = "--switch" ]; then
     exit 0
 fi
 
-# Kill mode: given a full emit line, confirm then kill that window.
-# Run via fzf's execute() (not execute-silent) so we have a tty to prompt on.
+# Kill mode: given a full emit line, confirm then kill that window. Both row
+# types resolve to their window (pane rows kill the window containing the
+# pane), matching the pre-tree behavior. Run via fzf's execute() (not
+# execute-silent) so we have a tty to prompt on.
 if [ "${1:-}" = "--kill" ]; then
     line="${2:-}"
-    sess=$(printf '%s' "$line" | cut -f1 | sed 's/^pane://')
-    win=$(printf '%s' "$line" | awk '{print $2}')
+    target=$(printf '%s' "$line" | cut -f1)
+    case "$target" in
+        win:*) sess=${target#win:}; sess=${sess%%:*} ;;  # drop the :<index> tail
+        *)     sess=${target#pane:} ;;
+    esac
+    win=$(printf '%s' "$line" | cut -f2)
     [ -z "$win" ] && exit 0
     printf 'Kill window %s:%s? [y/N] ' "$sess" "$win" > /dev/tty
     read -r ans < /dev/tty
@@ -388,7 +428,10 @@ with open(sys.argv[1], encoding='utf-8', errors='replace') as fh:
         line = line.rstrip('\n')
         if not line:
             continue
-        vis = line.split('\t', 1)[1] if '\t' in line else line
+        parts = line.split('\t')
+        # Fields 3+ are the display column (fields 1-2 are the hidden target/win);
+        # fzf joins them with tabs for display, so measure the joined remainder.
+        vis = '\t'.join(parts[2:]) if len(parts) > 2 else line
         maxw = max(maxw, len(esc.sub('', vis)))
         n += 1
 print(maxw, n)
@@ -421,7 +464,7 @@ orig_target=$(tmux display-message -p '#{session_name}:#{window_index}' 2>/dev/n
 fzf_cmd="cat $rows_file | fzf \
   --ansi --no-sort --exact --cycle \
   --delimiter='\t' \
-  --with-nth=2.. \
+  --with-nth=3.. \
   --prompt=' search  ' \
   --header=\"\$AGENT_PICK_HEADER\" \
   --bind=ctrl-j:down \
