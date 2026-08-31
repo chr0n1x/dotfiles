@@ -397,7 +397,36 @@ emit_rows() {
                 }
             }
         }
-    ' "$tmpd/ordered"
+    ' "$tmpd/ordered" | python3 -c '
+import sys, re
+esc = re.compile(r"\x1b\[[0-9;]*m")
+lines = sys.stdin.read().split("\n")
+rows = [ln.split("\t") if ln != "" else None for ln in lines]
+# Pad the icon+dir field (index 2) and the agent/cmd field (index 3) to a
+# shared max width so the tab that follows each one lands on the same
+# terminal column for every row - otherwise variable dir/agent lengths push
+# the tab to a different tab stop per row (window-name rows, with only 3
+# fields, are left untouched).
+maxw = {2: 0, 3: 0}
+for r in rows:
+    if r and len(r) == 5:
+        for i in (2, 3):
+            w = len(esc.sub("", r[i]))
+            if w > maxw[i]:
+                maxw[i] = w
+out_lines = []
+for r in rows:
+    if r is None:
+        out_lines.append("")
+        continue
+    if len(r) == 5:
+        for i in (2, 3):
+            pad = maxw[i] - len(esc.sub("", r[i]))
+            if pad > 0:
+                r[i] += " " * pad
+    out_lines.append("\t".join(r))
+sys.stdout.write("\n".join(out_lines))
+'
     rm -rf "$tmpd"
 }
 
