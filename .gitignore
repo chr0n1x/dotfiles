@@ -13,4 +13,4 @@ tmux-*-*.log
 .config/pet
 
 chroma.log
-.maki/permissions.toml
+.maki/*

@@ -1,0 +1,5 @@
+option skill-path "$HOME/.claude/skills"
+
+if [[ -f "$HOME/.config/crush/mcp.crushrc" ]]; then
+    source "$HOME/.config/crush/mcp.crushrc"
+fi
