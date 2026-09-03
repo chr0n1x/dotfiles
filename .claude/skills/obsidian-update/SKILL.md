@@ -1,0 +1,1 @@
+../../commands/obsidian-update.md

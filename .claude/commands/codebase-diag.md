@@ -1,6 +1,8 @@
 ---
+name: codebase-diag
 description: Run five git log commands to diagnose a new codebase before reading any source files
-argument-hint: optional target directory (default: pwd)
+user-invocable: true
+argument-hint: "optional target directory (default: pwd)"
 allowed-tools: Bash(git:*), Bash(sort*), Bash(uniq*), Bash(head*), Bash(grep*)
 ---
 

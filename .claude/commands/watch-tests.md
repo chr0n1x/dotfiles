@@ -1,5 +1,7 @@
 ---
+name: watch-tests
 description: Poll tmux panes for test results and fix failing tests in a loop until all pass
+user-invocable: true
 argument-hint: Optional tmux pane (e.g. 0:1.3)
 allowed-tools: Bash(tmux capture-pane*), Bash(tmux list-panes*), Bash(bash:*), Read, Edit, Glob, Grep
 ---

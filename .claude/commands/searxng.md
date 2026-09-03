@@ -1,5 +1,7 @@
 ---
+name: searxng
 description: Search using a self-hosted SearXNG instance and deep-dive into top results
+user-invocable: true
 argument-hint: search query
 allowed-tools: Bash(curl*), Bash(printenv*)
 ---

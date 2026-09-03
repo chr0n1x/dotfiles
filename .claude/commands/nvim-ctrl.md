@@ -1,5 +1,6 @@
 ---
 name: nvim-ctrl
+user-invocable: true
 description: Interact with the user's running Neovim instance via RPC. Use this skill when you need to execute Lua or Vimscript inside Neovim, query buffer state, send commands, or interact with the Neovim runtime in any way. Triggers when the user asks about their current Neovim session, wants to run something inside Neovim, or when you need to inspect Neovim state (buffers, windows, options, LSP, etc.). Also use when running inside a Neovim terminal and needing to communicate with the parent editor.
 ---
 

@@ -1,5 +1,7 @@
 ---
+name: obsidian-delete
 description: Delete entities in the Obsidian vault (notes, tags, links)
+user-invocable: true
 argument-hint: <entity> "Note Name" [flags]
 allowed-tools: Bash, Read
 ---

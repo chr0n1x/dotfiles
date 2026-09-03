@@ -1,6 +1,8 @@
 ---
+name: commit-push
 description: Commit all changes and push to remote following repo conventions
-argument-hint: [optional commit message override]
+user-invocable: true
+argument-hint: "[optional commit message override]"
 allowed-tools: Bash(git:*), Read, Write, Edit, Bash(echo*), Bash(grep*)
 ---
 

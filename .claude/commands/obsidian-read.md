@@ -1,5 +1,7 @@
 ---
+name: obsidian-read
 description: Read, search, or list entities in the Obsidian vault
+user-invocable: true
 argument-hint: <entity> <search term or flags>
 allowed-tools: Bash, Read
 ---

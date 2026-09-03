@@ -1,5 +1,7 @@
 ---
+name: obsidian-create
 description: Create a new note in the Obsidian vault
+user-invocable: true
 argument-hint: note "Title" [--tags t1,t2] [--dir path] [--content "text"]
 allowed-tools: Bash, Read, Write, Edit
 ---

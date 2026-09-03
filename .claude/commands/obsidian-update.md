@@ -1,5 +1,7 @@
 ---
+name: obsidian-update
 description: Update entities in the Obsidian vault (tags, links, content)
+user-invocable: true
 argument-hint: <entity> "Note Name" <flags...>
 allowed-tools: Bash, Read, Write, Edit
 ---
