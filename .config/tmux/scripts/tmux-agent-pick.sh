@@ -18,7 +18,8 @@ CLAUDE_PROJECTS="$HOME/.claude/projects"
 MAKI_SESSIONS="$HOME/.maki/sessions"
 COPILOT_STORE="$HOME/.copilot/session-store.db"
 COPILOT_STATE="$HOME/.copilot/session-state"
-AGENT_NAMES="claude maki aider codex devin opencode copilot cline"
+PI_SESSIONS="$HOME/.pi/agent/sessions"
+AGENT_NAMES="claude maki aider codex devin opencode copilot cline pi crush"
 
 # Session-state dir for a copilot pid, or empty. A copilot process can hold
 # inuse.<pid>.lock files in several session dirs (resumed/switched sessions
@@ -211,6 +212,62 @@ else:
             title=$(grep '"t":"meta"' "$f" 2>/dev/null | tail -1 | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('title',''))" 2>/dev/null)
             printf '%s' "$title"
             ;;
+        pi)
+            # pi keys its session dir off the cwd: --<cwd>-- with the leading
+            # slash stripped and /, \\, : turned into - (see
+            # jsonlSessionDirectoryName in the pi bundle). macOS won't expose a
+            # process's env, so the exact PI_SESSION_FILE isn't reachable by
+            # pid; instead take the most recently modified session file in that
+            # dir (matches maki's cwd-latest behaviour). Label is the last
+            # session_info.name (user/auto title), else the first user message.
+            local cwd dir
+            cwd=$(tmux display-message -p -t "$pane_id" '#{pane_current_path}' 2>/dev/null)
+            [ -n "$cwd" ] || return
+            dir="$PI_SESSIONS/--$(printf '%s' "$cwd" | sed -e 's#^/##' -e 's#[/\\:]#-#g')--"
+            [ -d "$dir" ] || return
+            f=$(find "$dir" -maxdepth 1 -name '*.jsonl' 2>/dev/null | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1)
+            [ -n "$f" ] || return
+            title=$(python3 -c "
+import json,sys
+name=first=''
+for line in open(sys.argv[1]):
+    try: e=json.loads(line)
+    except Exception: continue
+    if e.get('type')=='session_info' and e.get('name'):
+        name=e['name']
+    elif not first and e.get('type')=='message':
+        m=e.get('message',{})
+        if m.get('role')=='user':
+            c=m.get('content','')
+            if isinstance(c,list):
+                c=' '.join(b.get('text','') for b in c if isinstance(b,dict) and b.get('type')=='text')
+            first=(c or '').strip().replace(chr(10),' ')
+print(name or first)
+" "$f" 2>/dev/null)
+            printf '%s' "$title"
+            ;;
+        crush)
+            # crush keeps a per-project SQLite db at <cwd>/.crush/crush.db
+            # (created in the dir crush is launched from). Take the most
+            # recently updated session's title. Read-only open so the live WAL
+            # db isn't disturbed. cwd->db mapping, like maki/pi, since macOS
+            # won't expose the pid's exact session.
+            local cwd db
+            cwd=$(tmux display-message -p -t "$pane_id" '#{pane_current_path}' 2>/dev/null)
+            [ -n "$cwd" ] || return
+            db="$cwd/.crush/crush.db"
+            [ -f "$db" ] || return
+            title=$(python3 -c "
+import sqlite3,sys
+try:
+    c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
+    r=c.execute('SELECT title FROM sessions ORDER BY updated_at DESC LIMIT 1').fetchone()
+    print(r[0] if r and r[0] else '')
+except Exception:
+    print('')
+" "$db" 2>/dev/null)
+            printf '%s' "$title"
+            ;;
         copilot)
             # Map this pane's copilot pid -> its exact session via the inuse
             # lock, then look up that session's summary by id. Mapping by cwd
@@ -259,6 +316,8 @@ agent_color() {
         claude)   printf '\033[38;2;240;150;95m%s\033[0m' "$1" ;;  # light rust
         maki)     printf '\033[38;2;110;185;240m%s\033[0m' "$1" ;;  # light cerulean
         copilot)  printf '\033[38;2;170;120;255m%s\033[0m' "$1" ;;  # purple
+        pi)       printf '\033[38;2;255;255;255m%s\033[0m' "$1" ;;  # white (pi.dev logo)
+        crush)    printf '\033[38;2;255;96;255m%s\033[0m' "$1" ;;  # charm magenta
         *)        printf '%s' "$1" ;;
     esac
 }
