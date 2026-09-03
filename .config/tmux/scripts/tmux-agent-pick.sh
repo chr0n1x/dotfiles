@@ -145,6 +145,30 @@ pane_status() {
             *)            echo idle; return ;;
         esac
     fi
+    # crush's per-project SQLite db tracks message lifecycle: only assistant
+    # messages ever get a finished_at; tool/user rows stay NULL. At rest the
+    # newest message is a finished assistant; mid-turn it's an unfinished row
+    # (streaming assistant, or a tool/user row awaiting a reply). So the newest
+    # message having finished_at NULL means a turn is in progress = working.
+    # This catches pure text generation, which the child check misses.
+    if [ "$name" = crush ]; then
+        local db="$cwd/.crush/crush.db" w
+        [ -f "$db" ] || { echo unknown; return; }
+        w=$(python3 -c "
+import sqlite3,sys
+try:
+    c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
+    r=c.execute('SELECT finished_at FROM messages ORDER BY created_at DESC, rowid DESC LIMIT 1').fetchone()
+    print(1 if (r is not None and r[0] is None) else 0)
+except Exception:
+    print(-1)
+" "$db" 2>/dev/null)
+        case "$w" in
+            1)  echo working; return ;;
+            0)  echo idle; return ;;
+            *)  echo unknown; return ;;
+        esac
+    fi
     if [ "$name" = claude ]; then
         local f="$CLAUDE_SESSIONS/$pid.json" status
         if [ -f "$f" ]; then
@@ -500,7 +524,26 @@ fi
 # "win:<session>:<index>" for window header rows; field 2 is the window index
 # on both line types. Using "<session>:<window>" makes cross-session switching
 # work (a bare window index can't resolve a window in another session).
-if [ "${1:-}" = "--switch" ]; then
+# Briefly tint a pane's background, then reset it in the background. Same
+# mechanism as the pane-focus-in hook in tmux.conf, but explicit so the picker
+# flashes the target reliably (the hook fires hidden behind the popup, or on a
+# window whose flash lands off-screen). $1 = pane id. The reset is a delayed
+# background run-shell targeting the exact pane id, so rapid navigation can't
+# leave a pane stuck tinted. Note: tmux pane bg only shows through cells the app
+# leaves unpainted, so this reads strongest on shells/blank areas and is subtler
+# over full-screen TUIs.
+flash_pane() {
+    local pane="$1" tint="${2:-colour237}"
+    [ -n "$pane" ] || return
+    tmux select-pane -t "$pane" -P "bg=$tint" 2>/dev/null
+    tmux run-shell -b -d0.1 "tmux select-pane -t '$pane' -P 'bg=default'" 2>/dev/null
+}
+
+if [ "${1:-}" = "--switch" ] || [ "${1:-}" = "--focus" ]; then
+    # --focus is the live navigation preview (fired on every row the cursor
+    # lands on); --switch is the committed selection (Enter). They share the
+    # switch logic below but differ on window-header rows: see the win: guard.
+    preview=0; [ "${1:-}" = "--focus" ] && preview=1
     line="${2:-}"
     target=$(printf '%s' "$line" | cut -f1)
     case "$target" in
@@ -518,6 +561,16 @@ if [ "${1:-}" = "--switch" ]; then
         tmux switch-client -t "${sess}:${win}" 2>/dev/null \
             || tmux select-window -t "$win" 2>/dev/null
         [ -n "$paneid" ] && tmux select-pane -t "$paneid" 2>/dev/null
+        # Flash the pane we moved to, EXCEPT when live-previewing (--focus) a
+        # window-header row. A header previews the same pane as the first child
+        # row right below it, so flashing both would flash that pane twice as
+        # the cursor passes the header then the child. On a header we still
+        # switch (so hovering it isn't dead - it previews the window), just
+        # without the flash; the child row does the flash. Pane rows always
+        # flash, and Enter (--switch, preview=0) flashes headers too.
+        if [ -n "$paneid" ] || [ "$preview" = 0 ]; then
+            flash_pane "${paneid:-$(tmux display-message -p -t "${sess}:${win}" '#{pane_id}' 2>/dev/null)}"
+        fi
     }
     exit 0
 fi
@@ -654,7 +707,7 @@ fzf_cmd="cat $rows_file | fzf \
   --header=\"\$AGENT_PICK_HEADER\" \
   --bind=ctrl-j:down \
   --bind='load:change-header:' \
-  --bind=\"focus:execute-silent(bash $script_path --switch {})\" \
+  --bind=\"focus:execute-silent(bash $script_path --focus {})\" \
   --bind=\"ctrl-k:execute(bash $script_path --kill {})+reload(bash $script_path --emit)\" \
   --bind=\"esc:execute-silent(tmux switch-client -t '$orig_target')+abort\" \
   --bind=\"ctrl-r:reload(bash $script_path --emit)\" \
@@ -696,3 +749,10 @@ else
         -T "$ctitle" "$fzf_cmd"
 fi
 rm -f "$rows_file"
+
+# Landing flash. On the final selection the target pane was already focused
+# (behind the popup) during navigation, so closing the popup fires no new
+# focus-in. Flash the now-active pane explicitly here, after the popup is gone,
+# so it's clear where we landed. Subtler tint than the navigation flash: you're
+# already looking at the pane you picked, so this is a gentle confirmation.
+flash_pane "$(tmux display-message -p '#{pane_id}' 2>/dev/null)" colour235
