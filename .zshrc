@@ -55,3 +55,6 @@ if [[ -z "$TMUX" && "$AUTO_TMUX" = "true" ]]; then
   sshHost=$(env | grep SSH_CONNECTION | cut -d= -f2 | awk '{ print $1 }')
   tmux new-session -A -s "from-${sshHost}" && exit 0
 fi
+
+export DRIFT_TIMEOUT=60
+eval "$(drift --scene rain --fps 240 --theme rosepine)"
