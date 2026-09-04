@@ -57,4 +57,5 @@ if [[ -z "$TMUX" && "$AUTO_TMUX" = "true" ]]; then
 fi
 
 export DRIFT_TIMEOUT=60
-eval "$(drift --scene rain --fps 240 --theme rosepine)"
+eval "$(drift shell-init zsh)"
+drift --scene rain --fps 240 --theme rosepine
