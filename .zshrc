@@ -56,6 +56,4 @@ if [[ -z "$TMUX" && "$AUTO_TMUX" = "true" ]]; then
   tmux new-session -A -s "from-${sshHost}" && exit 0
 fi
 
-export DRIFT_TIMEOUT=60
-eval "$(drift shell-init zsh)"
-drift --scene rain --fps 240 --theme rosepine
+alias drift="drift --scene rain --fps 120 --theme rosepine"
