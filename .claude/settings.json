@@ -46,5 +46,8 @@
   },
   "effortLevel": "xhigh",
   "skipWorkflowUsageWarning": true,
-  "autoCompactEnabled": true
+  "theme": "dark",
+  "editorMode": "vim",
+  "autoCompactEnabled": true,
+  "autoContinueAtUsageLimit": false
 }
