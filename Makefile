@@ -100,9 +100,11 @@ submodules-over-https:
 
 
 # TODO: install golang
-install-golang-tools: install-surf-cli
+# install-golang-tools: install-surf-cli
+install-golang-tools:
 	go install github.com/mikefarah/yq/v4@latest
 	go install github.com/JohannesKaufmann/html-to-markdown/v2/cli/html2markdown@latest
+	go install github.com/phlx0/drift@latest
 
 
 install-surf-cli:
