@@ -3,3 +3,11 @@ option skill-path "$HOME/.claude/skills"
 if [[ -f "$HOME/.config/crush/mcp.crushrc" ]]; then
     source "$HOME/.config/crush/mcp.crushrc"
 fi
+
+if [[ ! -z "$LLAMACPP_HOST" ]]; then
+  provider add llamacpp \
+    --name "llama.cpp" \
+    --type llamacpp \
+    --base-url "$LLAMACPP_HOST" \
+    --discover-models true
+fi
