@@ -20,6 +20,13 @@ COPILOT_STORE="$HOME/.copilot/session-store.db"
 COPILOT_STATE="$HOME/.copilot/session-state"
 PI_SESSIONS="$HOME/.pi/agent/sessions"
 AGENT_NAMES="claude maki aider codex devin opencode copilot cline pi crush"
+# Python for json/sqlite lookups. Override with PYTHON_BIN to point at a
+# specific interpreter (e.g. a pyenv shim or /usr/bin/python3 where the default
+# python3 is something else). Empty = no python: labels are skipped and status
+# falls back to the child-process check; column alignment degrades to tab stops.
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3 2>/dev/null || true)}"
+# A bad override (pointing at a missing interpreter) counts as no python.
+[ -n "$PYTHON_BIN" ] && [ -x "$PYTHON_BIN" ] || PYTHON_BIN=""
 
 # Session-state dir for a copilot pid, or empty. A copilot process can hold
 # inuse.<pid>.lock files in several session dirs (resumed/switched sessions
@@ -128,6 +135,16 @@ pane_status() {
     [ -n "$info" ] || { echo idle; return; }
     pid="${info%% *}"
     name="${info##* }"
+    # claude/copilot/crush need python (json/sqlite). Without it, fall through
+    # to the child-process check below, which is pure ps/awk.
+    if [ "$name" = claude ] || [ "$name" = copilot ] || [ "$name" = crush ]; then
+        [ -n "$PYTHON_BIN" ] || {
+            kids=$(printf '%s\n' "$snap" | awk -v p="$pid" '$2==p {c++} END {print c+0}')
+            [ "${kids:-0}" -gt 0 ] && { echo working; return; }
+            echo idle
+            return
+        }
+    fi
     # copilot exposes turn lifecycle in its per-session events.jsonl. Map the
     # pid -> session dir and read the last assistant.turn_start/turn_end marker:
     # a start with no following end means a turn is in progress = working. No
@@ -154,7 +171,7 @@ pane_status() {
     if [ "$name" = crush ]; then
         local db="$cwd/.crush/crush.db" w
         [ -f "$db" ] || { echo unknown; return; }
-        w=$(python3 -c "
+        w=$("$PYTHON_BIN" -c "
 import sqlite3,sys
 try:
     c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
@@ -172,7 +189,7 @@ except Exception:
     if [ "$name" = claude ]; then
         local f="$CLAUDE_SESSIONS/$pid.json" status
         if [ -f "$f" ]; then
-            status=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('status',''))" "$f" 2>/dev/null)
+            status=$("$PYTHON_BIN" -c "import json,sys; print(json.load(open(sys.argv[1])).get('status',''))" "$f" 2>/dev/null)
             case "$status" in
                 busy)    echo working; return ;;
                 '')  : ;; # unreadable/missing field: fall through to child check
@@ -195,6 +212,8 @@ except Exception:
 session_label() {
     local info="$1" pane_id="$2" pid name f sid title proj
     [ -n "$info" ] || return
+    # All label lookups are json/sqlite via $PYTHON_BIN; without it, no labels.
+    [ -n "$PYTHON_BIN" ] || return
     pid="${info%% *}"
     name="${info##* }"
     case "$name" in
@@ -205,7 +224,7 @@ session_label() {
             # not the real ai-title).
             f="$CLAUDE_SESSIONS/$pid.json"
             [ -f "$f" ] || return
-            sid=$(python3 -c "
+            sid=$("$PYTHON_BIN" -c "
 import json,sys
 d=json.load(open(sys.argv[1]))
 name=d.get('name','')
@@ -220,7 +239,7 @@ else:
             [ -n "$sid" ] || return
             proj=$(find "$CLAUDE_PROJECTS" -maxdepth 2 -name "$sid.jsonl" 2>/dev/null | head -1)
             [ -n "$proj" ] || return
-            title=$(grep '"ai-title"' "$proj" 2>/dev/null | tail -1 | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('aiTitle',''))" 2>/dev/null)
+            title=$(grep '"ai-title"' "$proj" 2>/dev/null | tail -1 | "$PYTHON_BIN" -c "import json,sys; print(json.loads(sys.stdin.read()).get('aiTitle',''))" 2>/dev/null)
             printf '%s' "$title"
             ;;
         maki)
@@ -229,11 +248,11 @@ else:
             local cwd
             cwd=$(tmux display-message -p -t "$pane_id" '#{pane_current_path}' 2>/dev/null)
             [ -n "$cwd" ] || return
-            sid=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],''))" "$MAKI_SESSIONS/cwd_latest.json" "$cwd" 2>/dev/null)
+            sid=$("$PYTHON_BIN" -c "import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],''))" "$MAKI_SESSIONS/cwd_latest.json" "$cwd" 2>/dev/null)
             [ -n "$sid" ] || return
             f="$MAKI_SESSIONS/$sid.jsonl"
             [ -f "$f" ] || return
-            title=$(grep '"t":"meta"' "$f" 2>/dev/null | tail -1 | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('title',''))" 2>/dev/null)
+            title=$(grep '"t":"meta"' "$f" 2>/dev/null | tail -1 | "$PYTHON_BIN" -c "import json,sys; print(json.loads(sys.stdin.read()).get('title',''))" 2>/dev/null)
             printf '%s' "$title"
             ;;
         pi)
@@ -251,7 +270,7 @@ else:
             [ -d "$dir" ] || return
             f=$(find "$dir" -maxdepth 1 -name '*.jsonl' 2>/dev/null | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1)
             [ -n "$f" ] || return
-            title=$(python3 -c "
+            title=$("$PYTHON_BIN" -c "
 import json,sys
 name=first=''
 for line in open(sys.argv[1]):
@@ -281,7 +300,7 @@ print(name or first)
             [ -n "$cwd" ] || return
             db="$cwd/.crush/crush.db"
             [ -f "$db" ] || return
-            title=$(python3 -c "
+            title=$("$PYTHON_BIN" -c "
 import sqlite3,sys
 try:
     c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
@@ -303,7 +322,7 @@ except Exception:
             dir=$(copilot_session_dir "$pid")
             [ -n "$dir" ] || return
             sid=$(basename "$dir")
-            title=$(python3 -c "
+            title=$("$PYTHON_BIN" -c "
 import sqlite3,sys
 try:
     c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
@@ -480,16 +499,17 @@ emit_rows() {
                 }
             }
         }
-    ' "$tmpd/ordered" | python3 -c '
+    ' "$tmpd/ordered" | {
+         # Pad the icon+dir field (index 3) and the agent/cmd field (index 4)
+         # to a shared max width so the tab that follows each one lands on the
+         # same terminal column for every row. Window-name rows have only 3
+         # fields and are left untouched. Without $PYTHON_BIN this is skipped:
+         # columns fall back to tab stops, everything else works.
+         [ -n "$PYTHON_BIN" ] && "$PYTHON_BIN" -c '
 import sys, re
 esc = re.compile(r"\x1b\[[0-9;]*m")
 lines = sys.stdin.read().split("\n")
 rows = [ln.split("\t") if ln != "" else None for ln in lines]
-# Pad the icon+dir field (index 2) and the agent/cmd field (index 3) to a
-# shared max width so the tab that follows each one lands on the same
-# terminal column for every row - otherwise variable dir/agent lengths push
-# the tab to a different tab stop per row (window-name rows, with only 3
-# fields, are left untouched).
 maxw = {2: 0, 3: 0}
 for r in rows:
     if r and len(r) == 5:
@@ -509,7 +529,9 @@ for r in rows:
                 r[i] += " " * pad
     out_lines.append("\t".join(r))
 sys.stdout.write("\n".join(out_lines))
-'
+' || cat
+    }
+
     rm -rf "$tmpd"
 }
 
@@ -656,7 +678,7 @@ rows_file=$(mktemp "${TMPDIR:-/tmp}/tmux-agent-pick-rows.XXXXXX")
 emit_rows > "$rows_file" 2>/dev/null
 
 pop_w=""; pop_h=""
-dims=$(python3 - "$rows_file" <<'PY' 2>/dev/null
+dims=$("$PYTHON_BIN" - "$rows_file" <<'PY' 2>/dev/null
 import sys, re
 esc = re.compile(r'\x1b\[[0-9;]*m')
 maxw = n = 0
