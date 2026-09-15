@@ -285,7 +285,9 @@ for line in open(sys.argv[1]):
             if isinstance(c,list):
                 c=' '.join(b.get('text','') for b in c if isinstance(b,dict) and b.get('type')=='text')
             first=(c or '').strip().replace(chr(10),' ')
-print(name or first)
+t=name or first
+if len(t)>64: t=t[:63]+chr(8230)
+print(t)
 " "$f" 2>/dev/null)
             printf '%s' "$title"
             ;;

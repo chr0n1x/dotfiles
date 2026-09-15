@@ -8,10 +8,13 @@
     "~/.claude/commands"
   ],
   "packages": [
+    "git:github.com/huggingface/pi-llama",
+    "npm:pi-lens",
     "npm:pi-mcp-adapter",
-    "git:github.com/huggingface/pi-llama"
+    "npm:pi-subagents",
+    "npm:pi-web-access"
   ],
-  "tuiMode": "fullscreen",
+  "tuiMode": "regular",
   "hideThinkingBlock": true,
   "editorPaddingX": 1
 }
