@@ -71,6 +71,8 @@ linux: linux-packages go-install
 
 	# AI things
 	curl -fsSL https://claude.ai/install.sh | bash
+	curl -fsSL https://pi.dev/install.sh | sh
+	curl -fsSL https://maki.sh/install.sh | sh
 	# curl -fsSL https://ollama.com/install.sh | sh
 	# sudo systemctl disable ollama # only use CLI
 

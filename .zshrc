@@ -57,3 +57,6 @@ if [[ -z "$TMUX" && "$AUTO_TMUX" = "true" ]]; then
 fi
 
 alias drift="drift --scene rain --fps 120 --theme rosepine"
+
+# Pi
+export PATH="/home/kran/.local/share/pi-node/node-v22.23.2-linux-arm64/bin:$PATH"
