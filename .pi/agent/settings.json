@@ -11,5 +11,7 @@
     "npm:pi-mcp-adapter",
     "git:github.com/huggingface/pi-llama"
   ],
-  "hideThinkingBlock": true
+  "tuiMode": "fullscreen",
+  "hideThinkingBlock": true,
+  "editorPaddingX": 1
 }
