@@ -1,7 +1,15 @@
 {
   "lastChangelogVersion": "0.85.1",
   "theme": "dark",
+  "skills": [
+    "~/.claude/skills"
+  ],
+  "prompts": [
+    "~/.claude/commands"
+  ],
   "packages": [
+    "npm:pi-mcp-adapter",
     "git:github.com/huggingface/pi-llama"
-  ]
+  ],
+  "hideThinkingBlock": true
 }
