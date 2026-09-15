@@ -11,6 +11,8 @@ tmux-*-*.log
 .config/htop
 .config/go
 .config/pet
+# force update this; can differ between machines
+.pi/agent/settings.json
 
 chroma.log
 .maki/*
