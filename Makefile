@@ -55,6 +55,7 @@ linux: linux-packages go-install
 	sudo apt update && sudo apt install glow gum
 	curl https://sh.rustup.rs -sSf | sh
 	$(shell $$HOME/.cargo/bin/cargo install git-delta)
+	$(shell $$HOME/.cargo/bin/cargo install --git https://github.com/rtk-ai/rtk)
 
 	# cluster wrangling
 	curl -sL https://talos.dev/install | sh
