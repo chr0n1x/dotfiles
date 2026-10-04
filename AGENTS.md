@@ -40,6 +40,10 @@ Defaults - deviate only with stated reason.
   values, then one sentence on edge cases (what is absent
   or skipped). Separate the three with blank comment
   lines. No inline blobs, no arrows or shorthand.
+- Comments say what the code is and does, not what it lacks
+  or what was removed. No "has no X" or "does not Y" unless
+  a reader would otherwise assume X. Change history and
+  rejected alternatives belong in the PR, not the code.
 
 
 # Style
