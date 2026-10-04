@@ -32,6 +32,15 @@ Defaults - deviate only with stated reason.
   approval.
 - Rule 4 in practice: you claim a tool can do X? Run
   `<tool> --help` first. Look at its codebase if available.
+- Comment only to give non-obvious context (e.g. complex
+  operations triggered elsewhere) or to show a data shape a
+  reader would otherwise have to trace through the code to
+  see. For a data shape: one sentence on what it holds, a
+  pretty-printed example in a code block with realistic
+  values, then one sentence on edge cases (what is absent
+  or skipped). Separate the three with blank comment
+  lines. No inline blobs, no arrows or shorthand.
+
 
 # Style
 
