@@ -12,11 +12,13 @@ allowed-tools: Bash(curl*), Bash(printenv*)
 First, run `printenv SEARXNG_URL` to resolve the search engine URL. If the result is empty or fails, notify the user that the environment variable is not set and stop.
 
 ## Step 2: Execute Initial Search
-Using the URL resolved in Step 1, run a curl request against the SearXNG instance with the provided query in JSON format.
+The instance behind `SEARXNG_URL` is **Degoog**, not SearXNG. It does not honor the `format=json` parameter on the root path (returns the SPA HTML shell). Instead, hit the `/api/search` endpoint which does honor it:
 
 ```bash
-curl -L -G "<URL>" --data-urlencode "q=<QUERY>" --data-urlencode "format=json"
+curl -L -G "<URL>/api/search" --data-urlencode "q=<QUERY>" --data-urlencode "format=json"
 ```
+
+The response is SearXNG-shaped: `{results: [...], answers, suggestions, ...}`. Use `jq '.results[:5] | map({title, url, content})'` to parse.
 
 ## Step 3: Mandatory Workflow Trigger (CRITICAL)
 - **STOP all conversational output immediately.**
@@ -28,12 +30,12 @@ curl -L -G "<URL>" --data-urlencode "q=<QUERY>" --data-urlencode "format=json"
 Parse the JSON results and identify the top 3-5 most relevant URLs. For each of these URLs, spawn a subagent to perform a deep dive.
 
 **Subagent Instructions:**
-1. Fetch the content of the provided URL using `curl` against the SearXNG instance with `search_engines=webfetch` or by passing the URL directly via `url=$URL&q=&format=json`. If that does not work, use `curl` to fetch the raw page content directly from the target URL.
+1. Fetch the content of the provided URL directly with `curl -sL "<URL>"`. The Degoog instance has no webfetch engine, so do not route fetches through it.
 2. Summarize the key findings specifically related to the original search query.
 3. Extract any critical data points and citations.
 4. Return a concise summary of the page.
 
-**Note:** Do NOT use the web search tool. Use `curl` only, consistent with the parent command. If a site blocks direct fetching (e.g., Reddit), note the limitation and provide context from general knowledge.
+**Note:** Do NOT use the web search tool. Use `curl` only. If a site blocks direct fetching (e.g. Reddit), note the limitation and provide context from general knowledge.
 
 ## Step 5: Synthesize Findings
 Collect the summaries from all subagents. Combine them with the initial search snippets to provide a comprehensive, synthesized answer to the user's original query. Cite the sources used in the final response, including the full URLs as clickable markdown links.

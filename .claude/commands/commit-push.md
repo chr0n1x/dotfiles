@@ -41,27 +41,33 @@ If the user provided an override commit message in `$ARGUMENTS`, use it. Otherwi
 
 ## Step 4: Craft commit message
 
-Write a concise, accurate commit message following these rules (override with conventions from Step 1):
+**Subject line format (always):** `{type}: high-level summary`
 
-**Format:** `type: brief description`
+- Type: `feat` | `fix` | `chore` (pick the most appropriate)
+- Summary: a short phrase describing what changed, not why or how
+- Keep under 72 characters, imperative mood, no trailing period
 
-Types (pick the most appropriate):
-- `feat` — new functionality or feature
-- `fix` — bug fix
-- `chore` — docs, config, deps, tooling changes
+**Body (optional):** Only add a body when the change is non-obvious from the subject alone and a future reader would genuinely need the extra context. Do NOT narrate decisions, rationale, or trade-offs (e.g. "we chose emptyDir over PVC because..." is a no). If the subject tells the whole story, use a subject-only commit.
 
-**Rules:**
-- Keep subject line under 72 characters
-- Focus on the *why*, not the *what*
-- Use imperative mood ("add" not "added")
-- No trailing period
-- If multiple unrelated changes exist, split into separate commits with clear messages for each
-- Read `$CLAUDE_MODEL`, shorten it (lowercase org/name, drop MTP/GGUF/UD), and add `AI Model: <shortened>` to the commit body as a standalone line. Examples: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q6_K` → `unsloth/qwen3.6-35b:Q6_K`; `claude-opus-4-8` → `opus-4.8`.
-- Add `Co-Authored-By: RannetAI <noreply@rannet.duckdns.org>` to the commit body as the last line. Blank line before it.
+**Attribution (always in body):**
+- Read `$CLAUDE_MODEL`, shorten it (lowercase, drop MTP/GGUF/UD), add `AI Model: <shortened>` as a standalone line. Examples: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q6_K` → `qwen3.6-35b:Q6_K`; `claude-opus-4-8` → `opus-4.8`.
+- Add `Co-Authored-By: RannetAI <noreply@rannet.duckdns.org>` as the last line, blank line before it.
 
-**Example:**
+**If multiple unrelated changes exist, split into separate commits with clear messages for each.**
+
+**Examples:**
 ```
-feat: add PATH to wrapper and systemd unit for go/make/git access
+fix: pin kreaps pods to arm64 nodes
+```
+
+```
+feat: add PATH to wrapper and systemd unit
+```
+
+```
+chore: bump app-template to 5.2.1
+
+Wraps the new defaultPodOptions.nodeSelector support.
 ```
 
 ## Step 5: Detect model and commit
@@ -77,8 +83,7 @@ if [ "$SHORT_MODEL" != "claude-code" ]; then
 fi
 git commit -m "$(cat <<EOF
 <subject line>
-
-<body if needed>
+<body only if non-obvious, otherwise omit this line>
 
 AI Model: $SHORT_MODEL
 
