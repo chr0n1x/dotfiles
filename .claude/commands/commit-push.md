@@ -95,7 +95,7 @@ If the user gave an override message, use it verbatim without adding Co-Authored
 
 ## Step 6: Stack-aware commit and push
 
-Before committing or pushing, determine whether the branch is in a tracked or remote GitHub stack (see Step 1). If `gh stack` is not installed, the user must already have been told; run no `gh stack` commands, and do not push a branch that may be in a stack until the user confirms. Follow the `gh-stack` skill's confirmation gates and branch-chain procedures:
+Before committing or pushing, determine whether the branch is in a tracked or remote GitHub stack (Step 1). If `gh stack` is not installed, run no `gh stack` commands and do not push a branch that may be in a stack until the user confirms. Follow the `gh-stack` skill's gates and procedures:
 
 - Commit only the intended changes, on the branch that owns them. Do not switch stack branches with uncommitted changes unless they are verifiably preserved.
 - A commit on a parent branch can require rebasing descendants. After committing, check `gh stack view --json` for `needsRebase`. Do not push descendants or adjust PR bases ad hoc.
