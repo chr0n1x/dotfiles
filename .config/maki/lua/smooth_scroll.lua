@@ -1,4 +1,4 @@
--- Smooth, inertial transcript scrolling in normal mode. <C-d>/<C-u> glide
+-- Smooth, inertial transcript scrolling in normal mode. <C-u>/<C-d> glide
 -- a half page with a fast-start, slow-stop ease-out; a new press in the same
 -- direction retargets the glide (hold to keep going), an opposite press
 -- stops it.
@@ -72,6 +72,6 @@ local function start_glide(dir)
   end)
 end
 
-maki.keymap.set("n", "<C-d>", function() start_glide(1) end, { desc = "Smooth scroll down" })
 maki.keymap.set("n", "<C-u>", function() start_glide(-1) end, { desc = "Smooth scroll up" })
+maki.keymap.set("n", "<C-d>", function() start_glide(1) end, { desc = "Smooth scroll down" })
 maki.log.info("smooth_scroll: keymaps registered")
