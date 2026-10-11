@@ -129,3 +129,8 @@ On failure (hook failure, push rejected, etc.), report the error and suggest a f
 ## PR description style (when a PR is requested)
 
 Preserve the repo's PR template and conventions. Match neighboring PRs' terse tone: a one- or two-sentence summary and short change bullets, with no marketing language or filler. State what changed and what is out of scope, without overclaiming. If the template asks for checks, give exact commands with passed/failed/not-run, and check only items actually satisfied. List only relevant documentation. Keep the title brief and in commit style.
+
+
+## PR description (when a PR is requested)
+
+Use the `draft-pr` skill. It owns the title and body rules.
