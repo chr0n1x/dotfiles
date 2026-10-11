@@ -6,19 +6,20 @@ argument-hint: "[optional commit message override]"
 allowed-tools: Bash(git:*), Read, Write, Edit, Bash(echo*), Bash(grep*)
 ---
 
-# Commit Push — /commit-push (alias: /cpoh)
+# Commit Push - /commit-push (alias: /cpoh)
 
-Automate the full commit-and-push workflow. Follow repo-specific conventions by reading project MEMORY.md or CLAUDE.md for commit style rules.
+Commit and push following repo-specific conventions.
 
 ## Step 1: Gather context
 
-1. Read the project's `MEMORY.md` if it exists (check `project/memory/` and project root). Look for sections about commit conventions, push rules, branch naming, etc.
-2. If no MEMORY.md, read `CLAUDE.md` for any commit style hints.
-3. If neither has conventions, use the defaults described in Step 4.
+1. Read the project's `MEMORY.md` if it exists (check `project/memory/` and project root) for commit conventions, push rules, branch naming.
+2. If no MEMORY.md, read `CLAUDE.md` for commit style hints.
+3. If the branch has an open PR, run `gh pr view --json baseRefName,headRefName,headRefOid,url`. Check `git remote -v` and branch upstreams, but do not infer stack membership or the canonical push remote from upstream config alone.
+4. Check that the extension is installed: `gh stack --help >/dev/null 2>&1`. If it fails, tell the user `gh stack` is not installed (`gh extension install github/gh-stack`), that stack membership could not be checked, and that the branch is being treated as non-stack only for that reason. Ask whether to continue or install first. Do not fall back silently.
+5. If `gh stack` is installed and the PR or branch may be in a stack, use the `gh-stack` skill. Run `gh stack view --json`. "Not in a stack" or local-only tracking does not prove there is no remote stack; run `gh stack checkout <PR-number-or-URL>` to import the remote stack, then `gh stack view --json` again. Take the canonical remote from the PR and stack metadata.
+6. If none of the above gives conventions, use the defaults in Step 4.
 
 ## Step 2: Gather changes
-
-Run these commands to understand what will be committed:
 
 ```bash
 git status --short
@@ -27,33 +28,33 @@ git diff
 git log -5 --oneline
 ```
 
-Read all output. Identify which files are changed (staged + unstaged) and new/untracked files.
+Identify staged, unstaged, and untracked files.
 
 ## Step 3: Stage files
 
-Stage only relevant files — do NOT stage `.env`, credentials, lockfiles (unless the change is to the lockfile), or large binaries. Use specific file paths:
+Stage only relevant files, by path. Do NOT stage `.env`, credentials, lockfiles (unless the change is to the lockfile), or large binaries.
 
 ```bash
 git add path/to/file1 path/to/file2
 ```
 
-If the user provided an override commit message in `$ARGUMENTS`, use it. Otherwise proceed to Step 4.
+If `$ARGUMENTS` has a commit message, use it. Otherwise go to Step 4.
 
 ## Step 4: Craft commit message
 
-**Subject line format (always):** `{type}: high-level summary`
+**Subject (always):** `{type}: high-level summary`
 
-- Type: `feat` | `fix` | `chore` (pick the most appropriate)
-- Summary: a short phrase describing what changed, not why or how
-- Keep under 72 characters, imperative mood, no trailing period
+- Type: `feat` | `fix` | `chore`
+- Summary: a short phrase for what changed, not why or how
+- Under 72 characters, imperative mood, no trailing period
 
-**Body (optional):** Only add a body when the change is non-obvious from the subject alone and a future reader would genuinely need the extra context. Do NOT narrate decisions, rationale, or trade-offs (e.g. "we chose emptyDir over PVC because..." is a no). If the subject tells the whole story, use a subject-only commit.
+**Body (optional):** Only when the subject alone is not enough for a future reader. Do NOT narrate decisions, rationale, or trade-offs (e.g. "we chose emptyDir over PVC because..."). If the subject tells the whole story, use subject only.
 
 **Attribution (always in body):**
-- Read `$CLAUDE_MODEL`, shorten it (lowercase, drop MTP/GGUF/UD), add `AI Model: <shortened>` as a standalone line. Examples: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q6_K` → `qwen3.6-35b:Q6_K`; `claude-opus-4-8` → `opus-4.8`.
-- Add `Co-Authored-By: RannetAI <noreply@rannet.duckdns.org>` as the last line, blank line before it.
+- Add `AI Model: <model-name>` as a standalone line, using the model actually running this session (from agent/session metadata or the system-provided model name, not environment variables). Keep the provider prefix if present. For local GGUF names, lowercase and drop `unsloth/`, `MTP`, `GGUF`, `UD-`. Examples: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q6_K` -> `qwen3.6-35b:Q6_K`; `claude-opus-4-8` -> `opus-4.8`.
+- Last line, after a blank line: `Co-Authored-By: RannetAI <noreply@rannet.duckdns.org>`
 
-**If multiple unrelated changes exist, split into separate commits with clear messages for each.**
+**Split unrelated changes into separate commits.**
 
 **Examples:**
 ```
@@ -70,59 +71,61 @@ chore: bump app-template to 5.2.1
 Wraps the new defaultPodOptions.nodeSelector support.
 ```
 
-## Step 5: Detect model and commit
+## Step 5: Commit
 
-Shorten the model name from `$CLAUDE_MODEL` using these rules: lowercase, drop `unsloth/`, `MTP`, `GGUF`, `UD-` prefixes. Then execute:
+Write the message to a temp file and use `git commit -F`. Do NOT use `git commit -m "$(cat <<EOF ...)"`: the `"$(...)"` wrapper re-parses the body in the shell, so an apostrophe or backtick in the prose fails with `unexpected EOF`.
 
 ```bash
-SHORT_MODEL="${CLAUDE_MODEL:-claude-code}"
-if [ "$SHORT_MODEL" != "claude-code" ]; then
-  SHORT_MODEL="${SHORT_MODEL//-MTP/}"
-  SHORT_MODEL="${SHORT_MODEL//-GGUF/}"
-  SHORT_MODEL="${SHORT_MODEL//UD-/}"
-fi
-git commit -m "$(cat <<EOF
+MSG_FILE="$(mktemp)"
+cat > "$MSG_FILE" <<EOF
 <subject line>
 <body only if non-obvious, otherwise omit this line>
 
-AI Model: $SHORT_MODEL
+AI Model: <actual-session-model>
 
 Co-Authored-By: RannetAI <noreply@rannet.duckdns.org>
 EOF
-)"
+git commit -F "$MSG_FILE"
+rm -f "$MSG_FILE"
 ```
 
-If the user provided an override message, use it verbatim without adding Co-Authored-By.
+`<<EOF` is safe here because `cat` only writes the body to a file. If the body must contain a literal `$`, `` ` ``, or `\`, use `<<'EOF'` and fill in the model name afterward.
 
-## Step 6: Push (HARD GATE)
+If the user gave an override message, use it verbatim without adding Co-Authored-By.
 
-**NEVER run `git push` before the user has seen the full commit message AND explicitly confirmed.** This is a hard gate, not a default - there is no "they'll probably be fine with it" path. A prior "yes" in this session does not carry forward to a later, different commit; each push needs its own confirmation.
+## Step 6: Stack-aware commit and push
 
-The gate, in order:
-1. Show the full commit message verbatim (subject, body, trailers - everything), surrounded by decorators so it's clearly distinguishable from surrounding text.
-2. Ask a direct yes/no question: "Push `<sha> <subject>` to `<remote>`?"
-3. Wait for an explicit yes. Anything short of that (silence, a tangent, "ok" answering a different question) means do NOT push.
-4. Only then run `git push`.
+Before committing or pushing, determine whether the branch is in a tracked or remote GitHub stack (see Step 1). If `gh stack` is not installed, the user must already have been told; run no `gh stack` commands, and do not push a branch that may be in a stack until the user confirms. Follow the `gh-stack` skill's confirmation gates and branch-chain procedures:
 
-If the user's confirmation is ambiguous, ask again - do not push on a maybe.
+- Commit only the intended changes, on the branch that owns them. Do not switch stack branches with uncommitted changes unless they are verifiably preserved.
+- A commit on a parent branch can require rebasing descendants. After committing, check `gh stack view --json` for `needsRebase`. Do not push descendants or adjust PR bases ad hoc.
+- Take the canonical remote from the stack's branches/PRs and `gh stack view --json`, not from `origin` by default. `origin` may be a fork while another remote owns the stack PRs.
+- Get explicit confirmation for each stack mutation (push, submit), naming the exact remote. Sync with `gh stack submit --auto --remote REMOTE`, then verify remote branch SHAs, PR heads/bases, and stack state.
+- If the user explicitly asks to push a single stack branch, confirm the branch and canonical remote, then follow `gh-stack` guidance for descendants and sync.
 
-If they clearly say it's ok to push - push to the current branch's upstream:
+For non-stack branches, use the push flow below.
 
-```bash
-git push
-```
+## Step 7: Push (HARD GATE)
 
-If there is no upstream set yet:
+**NEVER run `git push` before the user has seen the full commit message AND explicitly confirmed.** A prior "yes" does not carry over to a later commit; each push needs its own confirmation.
 
-```bash
-git push -u origin $(git branch --show-current)
-```
+In order:
+1. Show the full commit message verbatim (subject, body, trailers), surrounded by decorators so it stands out.
+2. Ask a direct yes/no question: "Push `<sha> <subject>` to `<remote>`?" Use the interactive question tool if available.
+3. Wait for an explicit yes. Silence, a tangent, or an "ok" to a different question means do NOT push. If ambiguous, ask again.
+4. Only then push:
 
-## Step 7: Report
+- Stack branch: follow Step 6 and push to the canonical stack remote, not the configured `origin` upstream. `git push` alone does not update stacked PR bases.
+- Non-stack branch: `git push`, or if no upstream is set, `git push -u origin $(git branch --show-current)`.
 
-Tell the user:
-- What was committed (files changed, commit SHA, subject line)
-- That it was pushed successfully
-- The remote URL of the commit if applicable
+## Step 8: Report
 
-If anything failed (hook failure, push rejected, etc.), report the error and suggest a fix. Do NOT retry with `--force` or `--no-verify` unless explicitly asked.
+- What was committed (files changed, commit SHA, subject)
+- That the push succeeded
+- The remote URL of the commit, if applicable
+
+On failure (hook failure, push rejected, etc.), report the error and suggest a fix. Do NOT retry with `--force` or `--no-verify` unless explicitly asked.
+
+## PR description style (when a PR is requested)
+
+Preserve the repo's PR template and conventions. Match neighboring PRs' terse tone: a one- or two-sentence summary and short change bullets, with no marketing language or filler. State what changed and what is out of scope, without overclaiming. If the template asks for checks, give exact commands with passed/failed/not-run, and check only items actually satisfied. List only relevant documentation. Keep the title brief and in commit style.
