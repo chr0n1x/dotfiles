@@ -16,3 +16,7 @@ tmux-*-*.log
 
 chroma.log
 .maki/*
+# may differ by machine
+.config/maki/providers.toml
+.config/maki/permissions.toml
+.config/maki/plugin.toml
