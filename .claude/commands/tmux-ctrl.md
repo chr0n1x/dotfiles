@@ -154,10 +154,14 @@ tmux resize-pane -t <target> -x 200
 Prefer `#{pane_id}` over `window.pane` indices for `kill-pane` and
 `select-pane`, since splitting renumbers indices.
 
-## Combining with nvim-ctrl
+## Combining with other skills
 
 The Neovim terminal the agent runs in is itself a tmux pane. If you need to
 see what Neovim is showing, either `capture-pane` the pane that hosts it, or
-use the `nvim-ctrl` skill to query buffers directly. For test watchers and
-other long-running output, the `watch-tests` command builds on these same
-primitives.
+use the `nvim-ctrl` skill to query buffers directly.
+
+`watch-tests` is the main consumer of this skill's Reading primitives: it
+polls every pane on a loop, parses the output with per-runner grep patterns,
+and fixes failures until green. When a task is "watch the tests and fix what
+fails", load `watch-tests` - it owns the loop and the runner patterns; this
+skill owns only the `tmux` calls underneath it.

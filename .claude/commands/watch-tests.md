@@ -53,6 +53,8 @@ Also write patterns to the project's `MEMORY.md` if one doesn't exist yet (creat
 
 **No pane identification needed.** Instead of trying to find the right pane first, poll ALL tmux panes on every cycle and scan their combined output. This avoids the pain of identifying which pane holds the watcher.
 
+The capture primitives (`tmux list-panes -a -F`, `tmux capture-pane -p -S`) are documented in the `tmux-ctrl` skill's Reading section - use them as written there, with `-S -10` for the poll loop. The all-panes poll:
+
 ```bash
 # Capture tail -n 10 from every pane, concatenate with pane IDs as headers
 tmux list-panes -a -F "#{session_name}:#{window_index}.#{pane_index}" | while read pane; do
@@ -106,9 +108,7 @@ cd <project-dir> && go test ./...  # or equivalent for the runner
 
 ## Step 5: Capture and read failure details
 
-```bash
-tmux capture-pane -t <PANE> -p -S -300 2>/dev/null
-```
+Capture the failing pane's scrollback with the `tmux-ctrl` skill's Reading primitives - `tmux capture-pane -t <PANE> -p -S -300` capped to the failure window.
 
 Read the failure output. Before editing anything, read the relevant source file(s) to understand full context.
 
