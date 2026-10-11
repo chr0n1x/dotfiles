@@ -111,7 +111,7 @@ For non-stack branches, use the push flow below.
 
 In order:
 1. Show the full commit message verbatim (subject, body, trailers), surrounded by decorators so it stands out.
-2. Ask a direct yes/no question: "Push `<sha> <subject>` to `<remote>`?" Use the interactive question tool when available (e.g. maki's `question` tool) as a multiple-choice selection with exactly two options: `yes` and `no`. Do not ask free-form - the user should be able to answer with a tap, not a sentence. Only a `yes` selection counts as confirmation.
+2. Ask a direct yes/no question: "Push `<sha> <subject>` to `<remote>`?" Use the harness's interactive question tool with an explicit two-option `yes`/`no` list (on maki, the `gate` tool does this from three flat strings). Only a `yes` answer counts as confirmation.
 3. Wait for an explicit yes. Silence, a tangent, or an "ok" to a different question means do NOT push. If ambiguous, ask again.
 4. Only then push:
 

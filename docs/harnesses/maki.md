@@ -56,3 +56,16 @@ under `$HOME`, else full path) so it resolves regardless of where the session's
 cwd is. A line range is a hint for the model, not machine-parsed: use
 `path#L<start>-<end>` for a hunk and `path#L<n>` for a single line. Omit the
 suffix when referring to the whole file.
+
+## question tool debugging
+
+The `question` tool renders predefined options as a cursor-navigable
+list; with no `options` in the payload it degrades to a plain text box.
+The `gate` plugin (`.config/maki/lua/gate.lua`) wraps it with a flat
+three-string input for yes/no confirmations.
+
+Debugging a question prompt that renders as a text box: the payload is
+missing `options`. Verify against the raw input in
+`~/.maki/sessions/*.jsonl` - search `"name":"question"` and check the
+parsed JSON for an `options` key. A substring match is not enough; the
+word "options" appears in headers and descriptions.
