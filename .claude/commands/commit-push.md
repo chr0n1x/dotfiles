@@ -94,12 +94,17 @@ EOF
 
 If the user provided an override message, use it verbatim without adding Co-Authored-By.
 
-## Step 6: Push
+## Step 6: Push (HARD GATE)
 
-**IMPORTANT**:
-- ask for user to confirm whether it's ok or not to push FIRST.
-- When asking - SHOW the user the full commit message (verbatim - subject, body and everything else) so they can evaluate what you just did.
-- surround the commit message that you're showing them with some decorators so it's easy to distinguish the message vs surrounding interactions.
+**NEVER run `git push` before the user has seen the full commit message AND explicitly confirmed.** This is a hard gate, not a default - there is no "they'll probably be fine with it" path. A prior "yes" in this session does not carry forward to a later, different commit; each push needs its own confirmation.
+
+The gate, in order:
+1. Show the full commit message verbatim (subject, body, trailers - everything), surrounded by decorators so it's clearly distinguishable from surrounding text.
+2. Ask a direct yes/no question: "Push `<sha> <subject>` to `<remote>`?"
+3. Wait for an explicit yes. Anything short of that (silence, a tangent, "ok" answering a different question) means do NOT push.
+4. Only then run `git push`.
+
+If the user's confirmation is ambiguous, ask again - do not push on a maybe.
 
 If they clearly say it's ok to push - push to the current branch's upstream:
 
