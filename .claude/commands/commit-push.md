@@ -101,7 +101,7 @@ Before committing or pushing, determine whether the branch is in a tracked or re
 - A commit on a parent branch can require rebasing descendants. After committing, check `gh stack view --json` for `needsRebase`. Do not push descendants or adjust PR bases ad hoc.
 - Take the canonical remote from the stack's branches/PRs and `gh stack view --json`, not from `origin` by default. `origin` may be a fork while another remote owns the stack PRs.
 - Get explicit confirmation for each stack mutation (push, submit), naming the exact remote. Sync with `gh stack submit --auto --remote REMOTE`, then verify remote branch SHAs, PR heads/bases, and stack state.
-- If the user explicitly asks to push a single stack branch, confirm the branch and canonical remote, then follow `gh-stack` guidance for descendants and sync.
+- Confirm each stack mutation (push, submit), naming the exact remote. Sync with `gh stack submit --auto --remote REMOTE`, then verify remote branch SHAs, PR heads/bases, and stack state.
 
 For non-stack branches, use the push flow below.
 
