@@ -8,6 +8,11 @@ if not ok then
   maki.log.warn("smooth_scroll: " .. tostring(err))
 end
 
+local ok_gate, err_gate = pcall(require, "gate")
+if not ok_gate then
+  maki.log.warn("gate: " .. tostring(err_gate))
+end
+
 maki.api.register_command({
   name = "/resume",
   description = "Alias for /sessions",
