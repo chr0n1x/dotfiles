@@ -7,3 +7,14 @@ local ok, err = pcall(require, "smooth_scroll")
 if not ok then
   maki.log.warn("smooth_scroll: " .. tostring(err))
 end
+
+maki.api.register_command({
+  name = "/resume",
+  description = "Alias for /sessions",
+  handler = function()
+    local ok, err = maki.api.run_command("/sessions")
+    if not ok then
+      maki.ui.flash("could not run /sessions: " .. err)
+    end
+  end,
+})
