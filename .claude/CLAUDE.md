@@ -1,1 +1,1 @@
-../AGENTS.md
+../SYSTEM_PROMPT.md
