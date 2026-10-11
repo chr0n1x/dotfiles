@@ -1,6 +1,6 @@
 ---
 name: commit-push
-description: Commit all changes and push to remote following repo conventions
+description: Commit all changes and push to remote following repo conventions. Use when the user asks to commit, or asks how changes should be committed, split, or messaged.
 user-invocable: true
 argument-hint: "[optional commit message override]"
 allowed-tools: Bash(git:*), Read, Write, Edit, Bash(echo*), Bash(grep*)
