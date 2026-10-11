@@ -29,7 +29,7 @@ Write the body to a file in the scratchpad and pass `--body-file`. Confirm with 
 
 ## Title
 
-Use the repo's convention. Find it with `gh pr list --state merged --limit 5 --json title`. If there is none, use conventional commit style: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`. Lowercase, no period, under 70 characters, says what the PR does.
+Use the repo's convention. Find it with `gh pr list --state merged --limit 5 --json title`. If there is none, use conventional-commit style: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`. This is broader on purpose than commit subjects, which are limited to `feat`/`fix`/`chore` (see the `commit-push` skill) - a PR may bundle a refactor or docs change its individual commits could not be named after. Lowercase, no period, under 70 characters, says what the PR does.
 
 ## Body
 
