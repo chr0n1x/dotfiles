@@ -20,6 +20,10 @@ allowed-tools: Bash(nvim:*), Bash(sleep:*), Bash(echo:*), Grep, Glob, Read, inde
    displaying the file; otherwise pick an unmodified normal-file window
    (`buftype == ""`). If none exists, stop. Never open a tab, replace a
    terminal or modified buffer, use `edit!`, or edit buffer contents.
+   RPC can navigate an unfocused Neovim window; do not change tmux pane
+   or window focus just to show a file. If an explicit focus switch is needed,
+   remember the active pane, select the target, `sleep 0.2` in a separate
+   command, then restore the original pane after verification.
 3. In a **separate command**, `sleep 0.2` and use RPC to set that window's
    buffer (`vim.fn.bufnr` / `vim.fn.bufadd`, then `nvim_win_set_buf`) if needed.
    Set its cursor with `nvim_win_set_cursor(win, {line, 0})` when the line is
@@ -31,8 +35,10 @@ allowed-tools: Bash(nvim:*), Bash(sleep:*), Bash(echo:*), Grep, Glob, Read, inde
    `NVIM_APPNAME` warnings.
 
 Use separate calls (not one shell command); replace the path, line and
-window ID below. The `luaeval` result should be captured before filtering
-`NVIM_APPNAME` warnings (see `nvim-ctrl`).
+window ID below. If an explicit pane switch was requested, run `sleep 0.2`
+in its own call before example 1 and restore the previous pane after example 3.
+The `luaeval` result should be captured before filtering `NVIM_APPNAME`
+warnings (see `nvim-ctrl`).
 
 ```bash
 # 1. Inspect windows. Prefer the target if already displayed.
