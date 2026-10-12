@@ -36,6 +36,8 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
 
 4. **Open a tmux window (if requested).**
 
+   Use the `tmux-ctrl` skill's window-creation pattern (option 3):
+
    ```bash
    SESSION=$(tmux display-message -p '#{session_name}')
    tmux new-window -d -t "$SESSION" -n "wt-$SLUG" -c "$WT_DIR"

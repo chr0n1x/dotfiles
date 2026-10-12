@@ -230,4 +230,6 @@ Prefer `#{pane_id}` over `window.pane` indices for `kill-pane` and
 The Neovim terminal the agent runs in is itself a tmux pane. Use the
 `nvim-ctrl` skill to query buffers directly instead of `capture-pane`.
 `watch-tests` builds on this skill's split-pane pattern (option 2) for its
-test run and log polling.
+test run and log polling, and its popup pattern (option 4) for claim
+verification. `worktree` uses the window-creation pattern (option 3) to
+open a window in a worktree directory.

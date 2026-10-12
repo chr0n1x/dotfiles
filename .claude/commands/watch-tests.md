@@ -1,6 +1,6 @@
 ---
 name: watch-tests
-description: Run tests in a tmux split or popup, watch the log for failures, and fix them in a loop until all pass. Use when the user asks to run tests, watch tests, or fix failing tests.
+description: Run tests in a tmux split, watch the log for failures, and fix them in a loop until all pass. Also used to verify a claim by running a quick command in a tmux popup (grep, rg, a one-off check). Use when the user asks to run tests, watch tests, test-drive, try it out, check the tests, make sure tests pass, fix failing tests, verify a claim, "are you sure?", or "how do you know?"
 user-invocable: true
 argument-hint: "Optional test command (e.g. \"cargo test\", \"pytest\", \"go test ./...\")"
 allowed-tools: Bash(tmux:*), Bash(bash:*), Bash(mkdir:*), Bash(git:*), Read, Edit, Glob, Grep, memory
@@ -8,7 +8,35 @@ allowed-tools: Bash(tmux:*), Bash(bash:*), Bash(mkdir:*), Bash(git:*), Read, Edi
 
 # Watch Tests and Fix Until Green
 
-Run the project's test suite in a tmux split or popup, watch the log for failures, fix them, and re-run until all pass.
+Run the project's test suite in a tmux split, watch the log for failures, fix them, and re-run until all pass. Also handles quick claim verification in a popup when the user challenges a statement.
+
+## Verifying a claim (popup mode)
+
+When the user challenges a claim ("are you sure?", "how do you know?", "show me"), run the check in a **popup** (tmux-ctrl option 4), not a split. The check is quick and read-only (grep, rg, a one-off command). The user sees the result, closes the popup with Escape, and the agent reads the log.
+
+```bash
+CWD="$(pwd)"
+NVIM_PID=$(echo "$NVIM" | grep -oP '\d+(?=\.)')
+AGENT_PID="$$"
+TASK="verify"
+LOG="$CWD/.agents/${NVIM_PID}-${AGENT_PID}-${TASK}.log"
+mkdir -p "$CWD/.agents"
+W=$(tmux display-message -p '#{window_width}')
+H=$(tmux display-message -p '#{window_height}')
+PX=$((W * 48 / 100))
+PY=$((H * 40 / 100))
+PW=$((W * 28 / 100))
+PH=$((H * 31 / 100))
+tmux display-popup \
+  -t "$(tmux display-message -p '#{pane_id}')" \
+  -T "verify" \
+  -w "$PW" -h "$PH" \
+  -x "$PX" -y "$PY" \
+  -d "$CWD" \
+  "bash -c '<VERIFY_COMMAND> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; echo; echo \"exit: \$ec\" | tee -a $LOG; read -p \"[press esc to close]\"'"
+```
+
+Then read the log and report what the check found. If the claim turns out to be wrong, say so plainly and correct it.
 
 ## Step 1: Detect the test command
 
