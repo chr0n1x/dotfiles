@@ -115,6 +115,8 @@ For non-stack branches, use the push flow below.
 
 ## Step 7: Push (HARD GATE)
 
+An earlier approval to implement the change remains valid when the user asks for a PR. Proceed with the approved work and commit without asking to start again. The push gate below is separate: it requires confirmation for the specific commit and remote.
+
 **NEVER run `git push` before the user has seen the full commit message AND explicitly confirmed.** A prior "yes" does not carry over to a later commit; each push needs its own confirmation.
 
 In order:
