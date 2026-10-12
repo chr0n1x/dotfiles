@@ -234,7 +234,8 @@ result=$(nvim --server "$NVIM" --remote-expr 'luaeval("vim.fn.stdpath(\"config\"
 
 When files are edited externally (e.g. by Claude Code tools), Neovim's LSP
 diagnostics can become stale — showing warnings for old line numbers or
-already-fixed issues. To refresh:
+already-fixed issues. After RPC navigation or focus changes, allow `sleep 2`
+before verifying state; shorter delays may race Neovim's UI and autocmds. To refresh:
 
 1. **Reload the buffer and save** — this forces the LSP to re-analyze:
 
