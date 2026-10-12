@@ -36,3 +36,9 @@ _darcs
 ^/AGENTS\.md$
 
 \.nvimlog
+
+# other random log things
+SYSTEM_PROMPT.md
+docs/
+STRUCTURE.md
+chroma.log
