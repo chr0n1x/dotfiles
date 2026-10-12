@@ -14,11 +14,10 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
 
 1. **Identify the task.** Get a short slug from the user or the argument (e.g. `add-dark-mode`, `fix-login-bug`). This slug is used for the branch name, worktree path, and tmux window name.
 
-2. **Ask the user what to set up.** Use the gate/question tool with two independent yes/no questions:
-   - "Open a tmux window in the worktree so you can watch it? (yes / no)"
-   - "Spawn a subagent to do the work in the worktree? (yes / no)"
-     - If no to both: the agent creates the worktree and the user works in it directly (e.g. opens a new terminal, cds into it).
-     - If yes to subagent: the main agent stays on the main branch and reports the subagent's progress. The user can also watch the tmux window if they opened one.
+2. **Ask the user what to set up.** Use a yes/no confirmation (in maki, the `gate` tool; in other harnesses, whatever confirmation mechanism is available) with one question:
+   - "Spawn a subagent to work in the worktree?"
+     - If yes: open a tmux window in the worktree automatically (so the user can watch), then spawn the subagent.
+     - If no: just create the worktree. The user works in it directly (e.g. opens a new terminal, cds into it). No tmux window needed.
 
 3. **Create the worktree.**
 
@@ -34,7 +33,7 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
 
    If the branch already exists, ask whether to reuse it or pick a new slug.
 
-4. **Open a tmux window (if requested).**
+4. **Open a tmux window (only if subagent was requested).**
 
    Use the `tmux-ctrl` skill's window-creation pattern (option 3):
 
@@ -45,7 +44,7 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
 
    The window is named `wt-<repo>-<slug>` and starts in the worktree directory. The user can switch to it with `C-b <window-number>`.
 
-5. **Spawn a subagent (if requested).**
+5. **Spawn a subagent (only if requested).**
 
    Use the `task` tool. The subagent inherits the main agent's environment, so the prompt must tell it explicitly to work in the worktree.
 
@@ -63,7 +62,7 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
    - When finished, summarize what you changed and the commit hash(es).
    ```
 
-   **If a tmux window was opened:** capture its pane ID, then add this to the prompt:
+   **Always** (the tmux window is opened in step 4): capture its pane ID, then add this to the prompt:
 
    ```bash
    WT_PANE=$(tmux list-panes -t "$SESSION:wt-$REPO-$SLUG" -F '#{pane_id}')
@@ -90,8 +89,6 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
 
    Do NOT mirror file edits (read/edit/grep) - only bash commands.
    ```
-
-   **If no tmux window was opened:** do not add the mirror instructions. The subagent works invisibly in the agent's own pane. The main agent reports the result when the subagent finishes.
 
 6. **When the task is done.**
 
