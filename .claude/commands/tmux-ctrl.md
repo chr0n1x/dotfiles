@@ -30,31 +30,19 @@ your own pane unless the user explicitly asked for it. Always use an explicit
 `-t` target for anything that writes.
 
 **Always confirm with the user before writing to a tmux pane for the first
-time in a session.** The first `send-keys`, `new-window`, `split-window`, or
-`kill-*` you issue should be preceded by a plain-language description of
-exactly what will happen and to which target, then a yes/no question. Wait
-for "yes" before proceeding. Subsequent writes in the same session do not
-need re-confirmation unless the target changes in a way the user did not
-anticipate (e.g. a new pane, a different window).
+time in a session.** The first `send-keys`, `new-window`, `split-window`,
+`display-popup`, or `kill-*` you issue should be preceded by a
+plain-language description of exactly what will happen and to which target,
+then a yes/no question. Wait for "yes" before proceeding. Subsequent writes
+in the same session do not need re-confirmation unless the target changes in
+a way the user did not anticipate (e.g. a new pane, a different window, a
+new popup).
 
 **Use a yes/no multiple-choice question for every confirmation in this
 skill.** Always present a plain "yes" / "no" choice (not free-form text) so
 the user can answer with a tap, not a sentence. Phrase the question around
 what you are about to do, e.g. "Split window 1 with a vertical pane and run
 the test there? [yes / no]".
-
-**Prefer running commands in a pane the user can see.** If the current
-window has only one pane - the agent's own nvim/harness instance - do not run
-the command there. Ask the user first (yes/no) if a vertical split
-(`split-window -h`) is ok, and if yes, create it, run the command there, and
-kill the pane when done (after asking). If the window already has other
-panes, use one of those rather than the agent's own pane.
-
-**Split direction pattern:** the first split is always vertical (`-h`). Any
-further splits relative to the pane you just created alternate: horizontal
-(`-v`) next, then vertical, and so on. Target the newly created pane
-(`-t <pane_id>`), not the window, so the direction is relative to that pane
-specifically.
 
 **Always ask before `kill-pane` or `kill-window`, even if you created the
 pane yourself and the task is done.** A pane is a visible part of the user's
@@ -112,13 +100,36 @@ slash - is misparsed into key-name tokens silently, not with an error. For
 any real command or arbitrary text, always use `-l` (literal).
 
 Run a command in a new window or pane instead of typing it into an
-existing one. Ask the user first which of these they want:
+existing one. Ask the user first which of these they want (use the gate
+or question tool for a selectable list, not free-form text):
 
 1. **Use an existing pane** - send keys to a specific pane already in the
 window.
 2. **Split the focused pane** - `split-window` in the current window.
+   Use this for two concurrent commands (one per half).
 3. **Open a new window** - `new-window` in the current session; the agent
 can use it freely without touching the user's existing layout.
+4. **Floating popup** - `display-popup`; a floating terminal positioned
+proportionally over the current view. Good for showing one long-running
+command's output without rearranging panes. Only one popup per client;
+for two concurrent commands use a split (option 2) so both are visible
+side by side.
+
+Follow-up question (via gate/question tool, for options 1-3):
+- **"Close it when the command finishes?"**
+  - Yes: kill the pane/window after the command exits (ask again right
+    before killing, per the kill confirmation rule).
+  - No: leave it for the user.
+
+Popups (option 4) always stay open and end with
+`read -p "[press esc to close]"`. The user closes with Escape.
+The popup blocks the client, so the agent has no control over its
+lifecycle (tmux 3.5a). No follow-up question needed.
+
+Do not block-wait for the command to finish. Check the log file for the
+exit code line when you need the result; if it is not there yet, the
+command is still running. If you must wait between checks, keep `sleep`
+under 10 seconds - never longer.
 
 ```bash
 # Option 1: existing pane
@@ -126,19 +137,78 @@ tmux send-keys -t <target> -l 'make build'
 tmux send-keys -t <target> Enter
 
 # Option 2: split the focused pane, capture the new pane_id
+# Resize to 20% of window width to keep the main pane at full working size.
+# Select the original pane back so the user keeps focus on nvim.
+# Use the same tee-to-log pattern so the agent can detect completion.
+# "Close it?" = yes: agent polls the log for the exit code line, then
+# kill-pane (asking first, per the kill confirmation rule).
+ORIG_PANE=$(tmux display-message -p '#{pane_id}')
 NEW_PANE=$(tmux split-window -h -t <session>:<win> -P -F '#{pane_id}')
-tmux send-keys -t "$NEW_PANE" -l 'cargo test'
+W=$(tmux display-message -p '#{window_width}')
+tmux resize-pane -t "$NEW_PANE" -x $((W * 20 / 100))
+# Let tmux settle the new layout before grabbing focus back,
+# or the layout engine and select-pane fight over the active pane.
+sleep 1
+tmux select-pane -t "$ORIG_PANE"
+LOG="<cwd>/.agents/<nvim-pid>-<agent-pid>-<task-name>.log"
+mkdir -p "$(dirname "$LOG")"
+tmux send-keys -t "$NEW_PANE" -l "bash -c 'cargo test 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; echo \"exit: \$ec\" >> $LOG'"
 tmux send-keys -t "$NEW_PANE" Enter
+# Later, once "exit:" appears in the log:
+# tmux kill-pane -t "$NEW_PANE"   (ask the user first)
+# Focus is already on the original pane; no need to re-select.
 
 # Option 3: new window in the current session, then target it like option 1
-tmux new-window -d -t <session> -n build
-tmux send-keys -t <session>:build -l 'make build'
-tmux send-keys -t <session>:build Enter
+tmux new-window -d -t <session> -n <task-name>
+tmux send-keys -t <session>:<task-name> -l 'make build'
+tmux send-keys -t <session>:<task-name> Enter
+
+# Option 4: floating popup for a finite command
+#   -T <title>  the popup's title bar text
+#   -w/-h       width/height (default: 50% of terminal)
+#   -d <dir>    start directory
+# All output goes through tee to a deterministic log file in
+# <cwd>/.agents/ - the agent reads the log since it has no capture-pane
+# access to a popup. The exit code is appended to the log. The popup
+# stays open after the command; the user closes with Escape.
+# Log path: <cwd>/.agents/<nvim-pid>-<agent-pid>-<task-name>.log
+#   nvim-pid:  from the $NVIM socket path (e.g. /run/user/1000/nvim.2208455.0)
+#   agent-pid: $$ (the shell running the command)
+CWD="$(tmux display-message -p '#{pane_current_path}')"
+NVIM_PID=$(echo "$NVIM" | grep -oP '\d+(?=\.)')
+AGENT_PID="$$"
+LOG="$CWD/.agents/${NVIM_PID}-${AGENT_PID}-<task-name>.log"
+mkdir -p "$CWD/.agents"
+# Position and size are proportional to the window so they scale:
+#   x = 48% of width (slightly right of centre)
+#   y = 40% of height
+#   w = 28% of width
+#   h = 31% of height
+W=$(tmux display-message -p '#{window_width}')
+H=$(tmux display-message -p '#{window_height}')
+PX=$((W * 48 / 100))
+PY=$((H * 40 / 100))
+PW=$((W * 28 / 100))
+PH=$((H * 31 / 100))
+tmux display-popup \
+  -t "$(tmux display-message -p '#{pane_id}')" \
+  -T "<task-name>" \
+  -w "$PW" -h "$PH" \
+  -x "$PX" -y "$PY" \
+  -d "$CWD" \
+  "bash -c '<command> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; echo; echo \"exit: \$ec\" | tee -a $LOG; read -p \"[press esc to close]\"'"
+# The agent reads the result from the log path:
+#   tail "$LOG"  (check the exit code line, grep for failures)
 ```
 
 Always use `-P -F '#{pane_id}'` with `split-window` to capture the new
 pane's stable id. Never guess the new pane index; after any kill or
 renumber, index-based targets will point at the wrong pane.
+
+A popup is a client-level overlay, independent of pane indices and
+window layout. The agent interacts with it only through the log file.
+For commands where the agent needs `send-keys` or `capture-pane`, use
+options 1-3.
 
 ## Managing layout
 
@@ -156,12 +226,6 @@ Prefer `#{pane_id}` over `window.pane` indices for `kill-pane` and
 
 ## Combining with other skills
 
-The Neovim terminal the agent runs in is itself a tmux pane. If you need to
-see what Neovim is showing, either `capture-pane` the pane that hosts it, or
-use the `nvim-ctrl` skill to query buffers directly.
-
-`watch-tests` is the main consumer of this skill's Reading primitives: it
-polls every pane on a loop, parses the output with per-runner grep patterns,
-and fixes failures until green. When a task is "watch the tests and fix what
-fails", load `watch-tests` - it owns the loop and the runner patterns; this
-skill owns only the `tmux` calls underneath it.
+The Neovim terminal the agent runs in is itself a tmux pane. Use the
+`nvim-ctrl` skill to query buffers directly instead of `capture-pane`.
+`watch-tests` builds on this skill's Reading primitives for its poll loop.
