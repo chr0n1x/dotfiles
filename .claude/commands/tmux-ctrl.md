@@ -121,15 +121,11 @@ Follow-up question (via gate/question tool, for options 1-3):
     before killing, per the kill confirmation rule).
   - No: leave it for the user.
 
-Popups (option 4) always stay open and end with
-`read -p "[press esc to close]"`. The user closes with Escape.
-The popup blocks the client, so the agent has no control over its
-lifecycle (tmux 3.5a). No follow-up question needed.
+Popups (option 4) stay open at a `read` prompt after the command finishes. The user dismisses them with Escape. The popup blocks the client, so the agent has no control over its lifecycle (tmux 3.5a). No follow-up question needed. A popup closing or `tmux display-popup` returning does not tell you whether the command succeeded.
 
-Do not block-wait for the command to finish. Check the log file for the
-exit code line when you need the result; if it is not there yet, the
-command is still running. If you must wait between checks, keep `sleep`
-under 10 seconds - never longer.
+**Mandatory for every popup: pipe the command through `tee` into a known `.agents/...log`, append its actual exit code as `exit: <code>`, then read that marker from the log. Do not launch a popup command without logging. Popup closure and `tmux display-popup`'s return code are not the command result.**
+
+Poll the log while the popup is still open; do not block-wait for the user to dismiss it. `exit: 0` means success; a nonzero code means failure. No marker means the result is unknown, even if the popup has closed. If you must wait between checks, keep `sleep` under 10 seconds - never longer.
 
 ```bash
 # Option 1: existing pane
@@ -166,12 +162,14 @@ tmux send-keys -t <session>:<task-name> Enter
 
 # Option 4: floating popup for a finite command
 #   -T <title>  the popup's title bar text
-#   -w/-h       width/height (default: 50% of terminal)
+#   -w/-h       width/height as percentages of the terminal
+#   -x R        position the popup against the terminal's right edge
 #   -d <dir>    start directory
 # All output goes through tee to a deterministic log file in
 # <cwd>/.agents/ - the agent reads the log since it has no capture-pane
-# access to a popup. The exit code is appended to the log. The popup
-# stays open after the command; the user closes with Escape.
+# access to a popup. The command's exit code is appended to the log before
+# the read prompt. Poll for the marker while the popup stays open; the user
+# dismisses it with Escape.
 # Log path: <cwd>/.agents/<nvim-pid>-<agent-pid>-<task-name>.log
 #   nvim-pid:  from the $NVIM socket path (e.g. /run/user/1000/nvim.2208455.0)
 #   agent-pid: $$ (the shell running the command)
@@ -180,25 +178,15 @@ NVIM_PID=$(echo "$NVIM" | grep -oP '\d+(?=\.)')
 AGENT_PID="$$"
 LOG="$CWD/.agents/${NVIM_PID}-${AGENT_PID}-<task-name>.log"
 mkdir -p "$CWD/.agents"
-# Position and size are proportional to the window so they scale:
-#   x = 48% of width (slightly right of centre)
-#   y = 40% of height
-#   w = 28% of width
-#   h = 31% of height
-W=$(tmux display-message -p '#{window_width}')
-H=$(tmux display-message -p '#{window_height}')
-PX=$((W * 48 / 100))
-PY=$((H * 40 / 100))
-PW=$((W * 28 / 100))
-PH=$((H * 31 / 100))
+# Anchor at the terminal's right edge; keep the popup narrow and centered vertically (15% width).
 tmux display-popup \
   -t "$(tmux display-message -p '#{pane_id}')" \
   -T "<task-name>" \
-  -w "$PW" -h "$PH" \
-  -x "$PX" -y "$PY" \
+  -w '15%' -h '60%' \
+  -x R -y C \
   -d "$CWD" \
-  "bash -c '<command> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; echo; echo \"exit: \$ec\" | tee -a $LOG; read -p \"[press esc to close]\"'"
-# The agent reads the result from the log path:
+  "bash -c '<command> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; printf \"\\nexit: %s\\n\" \"\$ec\" | tee -a $LOG; read -r -p \"[press Escape to close] \"'"
+# While the popup is open, the agent reads the result from the log path:
 #   tail "$LOG"  (check the exit code line, grep for failures)
 ```
 
