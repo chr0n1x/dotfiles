@@ -13,6 +13,11 @@ if not ok_gate then
   maki.log.warn("gate: " .. tostring(err_gate))
 end
 
+local ok_jump, err_jump = pcall(require, "edit-jump-nvim")
+if not ok_jump then
+  maki.log.warn("edit-jump-nvim: " .. tostring(err_jump))
+end
+
 maki.setup({
   -- actually yolo'ing like the millenial I am
   always_yolo = true,
