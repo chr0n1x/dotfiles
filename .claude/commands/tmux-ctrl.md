@@ -163,7 +163,9 @@ tmux send-keys -t <session>:<task-name> Enter
 # Option 4: floating popup for a finite command
 #   -T <title>  the popup's title bar text
 #   -w/-h       width/height as percentages of the terminal
-#   -x R        position the popup against the terminal's right edge
+#   -x R        position the popup at the right edge
+#   -x C        center the popup horizontally
+#   -x <columns> position it that many columns from the left edge
 #   -d <dir>    start directory
 # All output goes through tee to a deterministic log file in
 # <cwd>/.agents/ - the agent reads the log since it has no capture-pane
@@ -178,12 +180,15 @@ NVIM_PID=$(echo "$NVIM" | grep -oP '\d+(?=\.)')
 AGENT_PID="$$"
 LOG="$CWD/.agents/${NVIM_PID}-${AGENT_PID}-<task-name>.log"
 mkdir -p "$CWD/.agents"
-# Anchor at the terminal's right edge; keep the popup narrow and centered vertically (15% width).
+# Position 10 columns right of center regardless of terminal width.
+W=$(tmux display-message -p '#{client_width}')
+POPUP_W=$((W * 30 / 100))
+X=$(((W - POPUP_W) / 2 + 10))
 tmux display-popup \
   -t "$(tmux display-message -p '#{pane_id}')" \
   -T "<task-name>" \
-  -w '15%' -h '60%' \
-  -x R -y C \
+  -w '30%' -h '80%' \
+  -x "$X" -y C \
   -d "$CWD" \
   "bash -c '<command> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; printf \"\\nexit: %s\\n\" \"\$ec\" | tee -a $LOG; read -r -p \"[press Escape to close] \"'"
 # While the popup is open, the agent reads the result from the log path:
