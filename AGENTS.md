@@ -19,5 +19,5 @@ skill so the model can trigger it by description, not just via the slash name:
 create `.claude/skills/<name>/SKILL.md` as a symlink to
 `../../commands/<name>.md`. One source of truth, two entry points. Plugin
 commands (the ponytail `.toml` set, loaded via the plugins dir) and reference
-commands that are not meant to be triggered (e.g. `codebase-diag`,
-`watch-tests`) have no skill entry.
+commands that are not meant to be triggered (e.g. `watch-tests`) have
+no skill entry.

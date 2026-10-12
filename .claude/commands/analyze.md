@@ -1,12 +1,14 @@
 ---
-name: codebase-diag
+name: analyze
 description: Run five git log commands to diagnose a new codebase before reading any source files
 user-invocable: true
 argument-hint: "optional target directory (default: pwd)"
 allowed-tools: Bash(git:*), Bash(sort*), Bash(uniq*), Bash(head*), Bash(grep*)
 ---
 
-# Codebase Diagnostics — /codebase-diag
+# Analyze — /analyze
+
+_aka /codebase-diag_
 
 _credit/source: [The Git Commands I Run Before Reading Any Code](https://piechowski.io/post/git-commands-before-reading-code/)_
 
