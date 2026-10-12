@@ -21,11 +21,15 @@ AGENT_PID="$$"
 TASK="verify"
 LOG="$CWD/.agents/${NVIM_PID}-${AGENT_PID}-${TASK}.log"
 mkdir -p "$CWD/.agents"
+# Shift 10 columns right of center at any terminal width.
+W=$(tmux display-message -p '#{client_width}')
+POPUP_W=$((W * 30 / 100))
+X=$(((W - POPUP_W) / 2 + 10))
 tmux display-popup \
   -t "$(tmux display-message -p '#{pane_id}')" \
   -T "verify" \
-  -w '15%' -h '60%' \
-  -x R -y C \
+  -w '30%' -h '80%' \
+  -x "$X" -y C \
   -d "$CWD" \
   "bash -c '<VERIFY_COMMAND> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; printf \"\\nexit: %s\\n\" \"\$ec\" | tee -a $LOG; read -r -p \"[press Escape to close] \"'"
 ```
