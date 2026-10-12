@@ -1,128 +1,108 @@
 ---
 name: watch-tests
-description: Poll tmux panes for test results and fix failing tests in a loop until all pass
+description: Run tests in a tmux split or popup, watch the log for failures, and fix them in a loop until all pass. Use when the user asks to run tests, watch tests, or fix failing tests.
 user-invocable: true
-argument-hint: Optional tmux pane (e.g. 0:1.3)
-allowed-tools: Bash(tmux capture-pane*), Bash(tmux list-panes*), Bash(bash:*), Read, Edit, Glob, Grep
+argument-hint: "Optional test command (e.g. \"cargo test\", \"pytest\", \"go test ./...\")"
+allowed-tools: Bash(tmux:*), Bash(bash:*), Bash(mkdir:*), Bash(git:*), Read, Edit, Glob, Grep, memory
 ---
 
 # Watch Tests and Fix Until Green
 
-## Runner summary grep patterns (lookup table)
+Run the project's test suite in a tmux split or popup, watch the log for failures, fix them, and re-run until all pass.
 
-| Runner | `SUMMARY_GREP` | `FAIL_GREP` | Done signal |
-|--------|---------------|-------------|-------------|
-| Jest / Vitest | `^(Test Suites\|Tests\|Time):` | `^(FAIL \|Test Suites\|Tests):` | `Test Suites:.*total$` |
-| pytest | `^(PASSED\|FAILED\|ERROR\|=)` | `^(FAILED\|ERROR\|=)` | `=+.*passed` or `=+.*failed` |
-| cargo test | `^test result:` | `^test result:` | `^test result:` |
-| go test | `^(ok\|FAIL)\s` | `^FAIL\s` | `make\[1\]: Leaving directory` |
+## Step 1: Detect the test command
 
-## Step 1: Detect test runner and framework
+If the user provided a test command in the argument, use it. Otherwise, infer from the working directory:
 
-### 1a. Check project MEMORY.md first
+- `Cargo.toml` → `cargo test`
+- `go.mod` → `go test ./...`
+- `pyproject.toml`, `setup.cfg`, `pytest.ini` → `pytest`
+- `package.json` → read `scripts.test` (vitest, jest, mocha, etc.)
 
-Look for a file named `MEMORY.md` in the project root. If it contains test runner patterns (look for "watch-tests-patterns", "Runner:", "go test", etc.), use those directly — they override the generic lookup table below. Set `RUNNER`, `SUMMARY_GREP`, `FAIL_GREP`, and `DONE_SIGNAL` from the file and skip to Step 2.
+If the runner cannot be confidently determined, ask the user.
 
-### 1b. Check graymatter memory
+Store the detected command in the project memory for future sessions:
 
-If no MEMORY.md, check graymatter memory for a previously stored runner:
-
-> `memory_search` agent_id=`watch-tests` query=`"test runner $(pwd)"`
-
-If found, use it and skip to Step 2.
-
-### 1c. Infer from project files
-
-If neither 1a nor 1b yields results, infer from the working directory:
-
-- `package.json` → read `scripts.test` and `devDependencies` (vitest, jest, mocha, etc.)
-- `pyproject.toml`, `setup.cfg`, `pytest.ini` → pytest
-- `Cargo.toml` → cargo test
-- `go.mod` → go test
-- Scan for `*.test.*` or `*.spec.*` files to confirm
-
-If the runner cannot be confidently determined, ask the user before continuing.
-
-After detection, store for future sessions (if `memory_add` is available):
-
-> `memory_add` agent_id=`watch-tests` text=`"$(pwd) runner=<RUNNER> summary_grep=<SUMMARY_GREP> fail_grep=<FAIL_GREP> done_signal=<DONE_SIGNAL>"`
-
-Also write patterns to the project's `MEMORY.md` if one doesn't exist yet (create it).
-
-## Step 2: Poll all panes for test output
-
-**No pane identification needed.** Instead of trying to find the right pane first, poll ALL tmux panes on every cycle and scan their combined output. This avoids the pain of identifying which pane holds the watcher.
-
-The capture primitives (`tmux list-panes -a -F`, `tmux capture-pane -p -S`) are documented in the `tmux-ctrl` skill's Reading section - use them as written there, with `-S -10` for the poll loop. The all-panes poll:
-
-```bash
-# Capture tail -n 10 from every pane, concatenate with pane IDs as headers
-tmux list-panes -a -F "#{session_name}:#{window_index}.#{pane_index}" | while read pane; do
-  echo "=== PANE: $pane ==="
-  tmux capture-pane -t "$pane" -p -S -10 2>/dev/null
-done
+```
+memory write "watch-tests-<repo>" tags=[watch-tests] content="<test command>"
 ```
 
-Store the combined output as `prev_output`. On each cycle, re-run the same command and compare. If output changed, parse it for test results.
+## Step 2: Launch the test run
 
-## Step 3: Poll for a new run (single loop)
-
-Run in background with `run_in_background: true`. Each iteration:
-
-1. Capture all panes (tail -n 10 from each)
-2. Compare against previous combined output
-3. If unchanged, sleep 3s and repeat (up to 80 iterations = ~4 min)
-4. If changed, parse for test results using the patterns from Step 1
-
-**Parsing logic:**
+Use the `tmux-ctrl` skill's split-pane pattern (option 2). This gives the user a visible pane with the test output and gives the agent a deterministic log file to read.
 
 ```bash
-combined=$(tmux list-panes -a -F "#{session_name}:#{window_index}.#{pane_index}" | while read pane; do
-  echo "=== PANE: $pane ==="
-  tmux capture-pane -t "$pane" -p -S -200 2>/dev/null
-done)
+CWD="$(pwd)"
+NVIM_PID=$(echo "$NVIM" | grep -oP '\d+(?=\.)')
+AGENT_PID="$$"
+TASK="test"
+LOG="$CWD/.agents/${NVIM_PID}-${AGENT_PID}-${TASK}.log"
+mkdir -p "$CWD/.agents"
 
-# Check for failure first
-if echo "$combined" | grep -qE "<FAIL_GREP>"; then
-  echo "FAIL"
-  echo "$combined" | grep -E "<FAIL_GREP>"
-elif echo "$combined" | grep -qE "<DONE_SIGNAL>"; then
-  echo "PASS"
-  echo "$combined" | grep -E "<SUMMARY_GREP>"
-else
-  echo "NO_RESULTS_YET"
-fi
+ORIG_PANE=$(tmux display-message -p '#{pane_id}')
+NEW_PANE=$(tmux split-window -h -t "$(tmux display-message -p '#{session_name}:#{window_index}')" -P -F '#{pane_id}')
+tmux select-pane -t "$NEW_PANE" -T "test-${NVIM_PID}-${AGENT_PID}"
+W=$(tmux display-message -p '#{window_width}')
+tmux resize-pane -t "$NEW_PANE" -x $((W * 20 / 100))
+sleep 1
+tmux select-pane -t "$ORIG_PANE"
+
+tmux send-keys -t "$NEW_PANE" -l "bash -c '<TEST_COMMAND> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; echo; echo \"exit: \$ec\" >> $LOG'"
+tmux send-keys -t "$NEW_PANE" Enter
 ```
 
-**Fallback if tmux capture is unreliable** (e.g. entr subprocesses running outside tmux): If polling detects changes but no DONE signal appears within timeout, fall back to running tests directly:
+Ask the user before the first `split-window` (per the tmux-ctrl confirmation rule). Subsequent re-runs in the same pane do not need re-confirmation.
+
+## Step 3: Wait for the result
+
+Poll the log file. Do not block-wait; check for the `exit:` line:
+
 ```bash
-cd <project-dir> && go test ./...  # or equivalent for the runner
+tail -5 "$LOG"
 ```
 
-## Step 4: Check outcome
+- If `exit: 0` is present: all tests passed.
+- If `exit: <nonzero>` is present: tests failed. Proceed to Step 4.
+- If neither is present: the test run is still going. Wait up to 10 seconds, then check again. Repeat.
 
-- `PASS` → report and stay in loop (go to Step 3)
-- `FAIL` → proceed to Step 5
-- `NO_RESULTS_YET` → sleep and continue polling
-- Fallback direct test run: if it fails, proceed to Step 5; if it passes, report PASS
+If the user is iterating (editing code while tests run), the test runner (cargo, go test, pytest, vitest) will pick up the next run automatically if it is in watch mode. If not in watch mode, re-run the test command in the same pane (send-keys to `$NEW_PANE`).
 
-## Step 5: Capture and read failure details
+## Step 4: Read the failure
 
-Capture the failing pane's scrollback with the `tmux-ctrl` skill's Reading primitives - `tmux capture-pane -t <PANE> -p -S -300` capped to the failure window.
+Read the log file for the failure details:
 
-Read the failure output. Before editing anything, read the relevant source file(s) to understand full context.
+```bash
+grep -B5 -A20 'FAIL\|failed\|error\|Error\|panic\|Panic' "$LOG" | tail -60
+```
 
-## Step 6: Fix the failure
+Read the relevant source files to understand the failure before editing.
+
+## Step 5: Fix the failure
 
 Make the minimal edit needed. Do NOT:
 - Rewrite passing tests
-- Change test logic (notify user)
+- Change test logic (notify the user)
 - Touch files unrelated to the failure
 
-## Step 7: Loop
+## Step 6: Re-run
 
-Go back to Step 3 and poll for the next run. Repeat until all tests pass.
+Re-run the test command in the same pane:
 
-## Step 8: Report
+```bash
+tmux send-keys -t "$NEW_PANE" -l "bash -c '<TEST_COMMAND> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; echo; echo \"exit: \$ec\" >> $LOG'"
+tmux send-keys -t "$NEW_PANE" Enter
+```
 
-Tell the user which files were changed and what was fixed. Ask the user if they would like to keep polling as they are working. If yes, go to Step 3.
+The log file is overwritten (tee truncates by default). Go back to Step 3.
+
+## Step 7: Done
+
+When all tests pass:
+
+1. Report which files were changed and what was fixed.
+2. Ask the user: "Close the test pane? (yes / no)"
+   - Yes: `tmux kill-pane -t "$NEW_PANE"` (ask again per the tmux-ctrl kill confirmation rule)
+   - No: leave it.
+3. Ask the user: "Keep watching as you make more changes? (yes / no)"
+   - Yes: stay in the loop (Step 3).
+   - No: stop.

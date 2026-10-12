@@ -144,6 +144,7 @@ tmux send-keys -t <target> Enter
 # kill-pane (asking first, per the kill confirmation rule).
 ORIG_PANE=$(tmux display-message -p '#{pane_id}')
 NEW_PANE=$(tmux split-window -h -t <session>:<win> -P -F '#{pane_id}')
+tmux select-pane -t "$NEW_PANE" -T "agent-<nvim-pid>-<agent-pid>-<task-name>"
 W=$(tmux display-message -p '#{window_width}')
 tmux resize-pane -t "$NEW_PANE" -x $((W * 20 / 100))
 # Let tmux settle the new layout before grabbing focus back,
@@ -228,4 +229,5 @@ Prefer `#{pane_id}` over `window.pane` indices for `kill-pane` and
 
 The Neovim terminal the agent runs in is itself a tmux pane. Use the
 `nvim-ctrl` skill to query buffers directly instead of `capture-pane`.
-`watch-tests` builds on this skill's Reading primitives for its poll loop.
+`watch-tests` builds on this skill's split-pane pattern (option 2) for its
+test run and log polling.
