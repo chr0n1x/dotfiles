@@ -40,20 +40,20 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
 
    ```bash
    SESSION=$(tmux display-message -p '#{session_name}')
-   tmux new-window -d -t "$SESSION" -n "wt-$SLUG" -c "$WT_DIR"
+   tmux new-window -d -t "$SESSION" -n "wt-$REPO-$SLUG" -c "$WT_DIR"
    ```
 
-   The window is named `wt-<slug>` and starts in the worktree directory. The user can switch to it with `C-b <window-number>`.
+   The window is named `wt-<repo>-<slug>` and starts in the worktree directory. The user can switch to it with `C-b <window-number>`.
 
 5. **Spawn a subagent (if requested).**
 
-   Use the `task` tool. The subagent inherits the main agent's environment, so the prompt must tell it explicitly to work in the worktree:
+   Use the `task` tool. The subagent inherits the main agent's environment, so the prompt must tell it explicitly to work in the worktree.
+
+   **Base prompt (always):**
 
    ```
-   task(subagent_type="general", prompt="""
    You are working in a git worktree at $WT_DIR on branch $BRANCH.
    The main repo is at $REPO_ROOT - do NOT touch it.
-
    Task: <task description>
 
    Rules:
@@ -61,10 +61,37 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
    - Commit your work on the worktree branch when done.
    - Do NOT push. Do NOT merge. Do NOT modify the main repo.
    - When finished, summarize what you changed and the commit hash(es).
-   """)
    ```
 
-   The main agent reports the subagent's result to the user. If the user opened a tmux window, the subagent's terminal output is not visible in that window (the subagent runs in the agent's own pane). The tmux window is for the user to inspect the worktree state, run tests, or edit files directly.
+   **If a tmux window was opened:** capture its pane ID, then add this to the prompt:
+
+   ```bash
+   WT_PANE=$(tmux list-panes -t "$SESSION:wt-$REPO-$SLUG" -F '#{pane_id}')
+   ```
+
+   ```
+   TMUX WINDOW (required): You have a dedicated tmux window
+   (wt-$REPO-$SLUG, pane $WT_PANE) in the worktree directory. The
+   user is watching this window. This window is yours to use.
+
+   Mirror every bash command you run into the main pane so the user
+   sees it:
+   1. Run it in your own shell (to get the result).
+   2. Mirror it: tmux send-keys -t "$WT_PANE" -l '<command>'
+   3. Then:    tmux send-keys -t "$WT_PANE" Enter
+
+   You may also use the tmux-ctrl skill to manage the window's layout:
+   - Split the pane to run concurrent commands (e.g. a server in one
+     half, tests in the other).
+   - Open new panes for long-running processes (servers, watchers).
+   - Use display-popup for quick output checks.
+   - The window is your sandbox. The user watches whatever you put
+     in it. Do NOT touch panes or windows outside this one.
+
+   Do NOT mirror file edits (read/edit/grep) - only bash commands.
+   ```
+
+   **If no tmux window was opened:** do not add the mirror instructions. The subagent works invisibly in the agent's own pane. The main agent reports the result when the subagent finishes.
 
 6. **When the task is done.**
 
@@ -73,8 +100,8 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
      - Yes: `git -C "$REPO_ROOT" merge --no-ff "$BRANCH"`
    - "Remove the worktree? (yes / no)"
      - Yes: `git -C "$REPO_ROOT" worktree remove "$WT_DIR"`
-   - If a tmux window was opened: "Close the tmux window `wt-$SLUG`? (yes / no)"
-     - Yes: `tmux kill-window -t "$SESSION:wt-$SLUG"` (ask again per the tmux-ctrl kill confirmation rule)
+   - If a tmux window was opened: "Close the tmux window `wt-$REPO-$SLUG`? (yes / no)"
+     - Yes: `tmux kill-window -t "$SESSION:wt-$REPO-$SLUG"` (ask again per the tmux-ctrl kill confirmation rule)
 
 ## Rules
 
@@ -82,7 +109,7 @@ Isolate a task in its own git worktree so the main branch and the agent's main p
 - **Never merge without asking.** Ask even if the worktree branch is clean and the main branch has no new commits.
 - **Worktree path: `~/.worktrees/<repo>/<slug>`.** Do not create worktrees inside the repo directory.
 - **Branch naming: `worktree/<slug>`.** The prefix keeps worktree branches distinguishable from regular feature branches.
-- **Tmux window name: `wt-<slug>`.**
+- **Tmux window name: `wt-<repo>-<slug>`.**
 - **One worktree per task.** For parallel tasks, create multiple worktrees. Each gets its own slug, branch, window, and (optionally) subagent.
 - **The subagent works in the worktree via git -C, not by changing the agent's cwd.** The main agent's working directory stays on the main repo.
 
