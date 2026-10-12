@@ -1,6 +1,6 @@
 ---
 name: commit-push
-description: Commit all changes and push to remote following repo conventions. Use when the user asks to commit, or asks how changes should be committed, split, or messaged.
+description: Commit all changes and push to remote following repo conventions. Load this skill before any commit or push - do not free-style the flow. Use when the user asks to commit, push, or asks how changes should be committed, split, or messaged.
 user-invocable: true
 argument-hint: "[optional commit message override]"
 allowed-tools: Bash(git:*), Read, Write, Edit, Bash(echo*), Bash(grep*)
@@ -9,6 +9,10 @@ allowed-tools: Bash(git:*), Read, Write, Edit, Bash(echo*), Bash(grep*)
 # Commit Push - /commit-push (alias: /cpoh)
 
 Commit and push following repo-specific conventions.
+
+**Load this skill before any commit or push.** Do not rely on memory of
+its contents - the steps and gates may have changed since you last read
+them. Follow the current text step by step.
 
 ## Step 1: Gather context
 
@@ -48,7 +52,7 @@ If `$ARGUMENTS` has a commit message, use it. Otherwise go to Step 4.
 - Summary: a short phrase for what changed, not why or how
 - Under 72 characters, imperative mood, no trailing period
 
-**Body (optional):** Only when the subject alone is not enough for a future reader. Do NOT narrate decisions, rationale, or trade-offs (e.g. "we chose emptyDir over PVC because..."). If the subject tells the whole story, use subject only.
+**Body:** Omit unless the subject is actively misleading without it. Do NOT narrate decisions, rationale, or trade-offs. If you wrote a body, re-read it: can the subject absorb it? If yes, cut the body.
 
 **Attribution (always in body):**
 - Add `AI Model: <model-name>` as a standalone line, using the model actually running this session (from agent/session metadata or the system-provided model name, not environment variables). Keep the provider prefix if present. For local GGUF names, lowercase and drop `unsloth/`, `MTP`, `GGUF`, `UD-`. Examples: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q6_K` -> `qwen3.6-35b:Q6_K`; `claude-opus-4-8` -> `opus-4.8`.
