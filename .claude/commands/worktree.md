@@ -125,4 +125,7 @@ git worktree remove ~/.worktrees/<repo>/<slug>
 
 # Prune stale references
 git worktree prune
+
+# Kill the tmux window if one was opened
+tmux kill-window -t "$(tmux display-message -p '#{session_name}'):wt-<repo>-<slug>" 2>/dev/null
 ```
