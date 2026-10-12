@@ -9,87 +9,51 @@ description: Open a file in the user's running Neovim instance, optionally
 user-invocable: true
 argument-hint: "[what to show, e.g. \"the auth middleware\",
   \"where we define TaskRunner\", \"where the config gets loaded\"]"
-allowed-tools: Bash(nvim:*), Bash(echo:*), Grep, Glob, Read, index, skill
+allowed-tools: Bash(nvim:*), Bash(sleep:*), Bash(echo:*), Grep, Glob, Read, index, skill
 ---
 
 # Show
 
-Open a file in the user's Neovim. When a line is known, place the cursor on
-that line and verify its position before reporting success.
-Two modes:
+1. If `$NVIM` is empty or its socket unavailable, stop. Resolve an absolute
+   path and 1-indexed line: use the known location or `grep` for the definition.
+2. Load `nvim-ctrl`. Query visible windows via RPC. Reuse the window already
+   displaying the file; otherwise pick an unmodified normal-file window
+   (`buftype == ""`). If none exists, stop. Never open a tab, replace a
+   terminal or modified buffer, use `edit!`, or edit buffer contents.
+3. In a **separate command**, `sleep 0.2` and use RPC to set that window's
+   buffer (`vim.fn.bufnr` / `vim.fn.bufadd`, then `nvim_win_set_buf`) if needed.
+   Set its cursor with `nvim_win_set_cursor(win, {line, 0})` when the line is
+   known. Without a line, retain the cursor if already visible; otherwise use
+   line 1. Do not run `normal!` from the terminal.
+4. In another command, `sleep 0.2`, then RPC-query the **same window** for
+   its buffer path and cursor line. Report success only if they match. Report
+   failures plainly. Use `nvim-ctrl`'s `--remote-expr` pattern to suppress
+   `NVIM_APPNAME` warnings.
 
-- **Find and open**: the user asks "where is X defined?" or "show me where
-  X happens." Search for it, then open.
-- **Just open**: the user says "show me that file" or "open the config" and
-  the referent is already known from conversation context. Open it directly.
-
-## Step 1: Check for Neovim
-
-```bash
-echo "$NVIM"
-```
-
-If empty, stop and tell the user: "I'm not running inside a Neovim terminal,
-so I can't open anything in your editor. Run me from a terminal inside
-Neovim to use `show`." Do not attempt any nvim RPC.
-
-## Step 2: Resolve the target
-
-**Just open** (referent known from context): use the file path directly. If
-a line number is also known, use it. If no line number, open the file at the
-top.
-
-**Find and open** (referent is a symbol, concept, or vague description): use
-the argument to locate the definition. Prefer an exact definition over a
-call site. Typical approach:
-
-- Use the `grep` tool (not raw `grep` in bash) to search for the symbol
-  (e.g. `fn <name>`, `def <name>`, `function <name>`, `<name>(`,
-  struct/class/interface/type declarations, or the config key).
-- If multiple candidates, pick the definition, not usages. If it is
-  genuinely ambiguous (two definitions in different modules), open the one
-  matching the user's context and say where the other one is.
-
-Record the absolute file path and the 1-indexed line number (or omit the
-line if just opening a file).
-
-## Step 3: Open it in the user's Neovim
-
-Follow the `nvim-ctrl` skill (command-substitution + `grep -v` pattern to
-suppress the `NVIM_APPNAME` warning):
-
-**With a line number:** Open the file in a tab, then set the cursor in the
-window displaying that buffer. A `--remote-expr` sent from a Neovim terminal
-can run in the terminal's window; `edit! ...|normal! zz` can fail with
-`Can't re-enter normal mode from terminal mode`. Do not fall back to merely
-opening the file when a line is known.
+Use separate calls (not one shell command); replace the path, line and
+window ID below. The `luaeval` result should be captured before filtering
+`NVIM_APPNAME` warnings (see `nvim-ctrl`).
 
 ```bash
-nvim --server "$NVIM" --remote-tab <ABS_PATH>
-result=$(nvim --server "$NVIM" --remote-expr \
-  'luaeval("(function() local path = \"<ABS_PATH>\"; for _,b in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_get_name(b) == path then for _,w in ipairs(vim.fn.win_findbuf(b)) do vim.api.nvim_win_set_cursor(w, {<LINE>, 0}); return vim.json.encode({path=path, line=vim.api.nvim_win_get_cursor(w)[1]}) end end end return \"buffer not visible\" end)()")') \
-  && printf '%s\n' "$result" | grep -v '^Warning: Using NVIM_APPNAME='
+# 1. Inspect windows. Prefer the target if already displayed.
+result=$(nvim --server "$NVIM" --remote-expr 'luaeval("vim.json.encode(vim.tbl_map(function(w) local b=vim.api.nvim_win_get_buf(w); return {win=w,path=vim.api.nvim_buf_get_name(b),type=vim.bo[b].buftype,modified=vim.bo[b].modified} end,vim.api.nvim_list_wins()))")')
+printf '%s\n' "$result" | grep -v '^Warning: Using NVIM_APPNAME='
 ```
-
-Verify the result reports the requested path and line. If it reports `buffer
-not visible` or a different line, say the jump failed instead of claiming it
-worked. Use absolute paths without quotes or backslashes in the placeholder;
-otherwise escape them for the nested Lua string.
-
-**Without a line number (just open the file):**
 
 ```bash
-result=$(nvim --server "$NVIM" --remote-expr \
-  "execute(\"edit! <ABS_PATH>\")") \
-  && echo "$result" | grep -v '^Warning: Using NVIM_APPNAME='
+# 2. Reuse the selected file window; do not touch a modified buffer.
+sleep 0.2
+result=$(nvim --server "$NVIM" --remote-expr 'luaeval("(function() local w=<WIN>; local path=\"<ABS_PATH>\"; local b=vim.api.nvim_win_get_buf(w); if vim.api.nvim_buf_get_name(b) ~= path then if vim.bo[b].buftype ~= \"\" or vim.bo[b].modified then return \"unsafe window\" end; local target=vim.fn.bufnr(path); if target == -1 then target=vim.fn.bufadd(path) end; vim.api.nvim_win_set_buf(w,target) end; vim.api.nvim_win_set_cursor(w,{<LINE>,0}); return \"moved\" end)()")')
+printf '%s\n' "$result" | grep -v '^Warning: Using NVIM_APPNAME='
 ```
 
-For a file without a known line, `edit!` opens the buffer even if it is
-already open. Use `execute()` rather than `vim.cmd()` for that RPC command:
-`vim.cmd()` via `--remote-expr` can hang waiting for a response.
+```bash
+# 3. Verify the same window, after Neovim settles.
+sleep 0.2
+result=$(nvim --server "$NVIM" --remote-expr 'luaeval("(function() local w=<WIN>; return vim.json.encode({path=vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(w)),line=vim.api.nvim_win_get_cursor(w)[1]}) end)()")')
+printf '%s\n' "$result" | grep -v '^Warning: Using NVIM_APPNAME='
+```
 
-## Step 4: Report
-
-One line: what was opened and where, e.g. "Opened
-`src/auth/middleware.go:42` - that is where `AuthMiddleware` is defined."
-If there are other relevant locations, list them briefly.
+For no known line, skip `nvim_win_set_cursor` when already on the target;
+otherwise use line 1. Escape quotes and backslashes in paths. Only report
+success if the verified path and line match. Reply with `path:line`.
