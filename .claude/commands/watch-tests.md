@@ -12,7 +12,7 @@ Run the project's test suite in a tmux split, watch the log for failures, fix th
 
 ## Verifying a claim (popup mode)
 
-When the user challenges a claim ("are you sure?", "how do you know?", "show me"), run the check in a **popup** (tmux-ctrl option 4), not a split. The check is quick and read-only (grep, rg, a one-off command). The user sees the result, closes the popup with Escape, and the agent reads the log.
+When the user challenges a claim ("are you sure?", "how do you know?", "show me"), run the check in a **popup** (tmux-ctrl option 4), not a split. The check is quick and read-only (grep, rg, a one-off command). The popup stays open until the user dismisses it. Read the log's `exit: <code>` marker while it is still open; popup visibility or `tmux display-popup` returning does not establish the check's result.
 
 ```bash
 CWD="$(pwd)"
@@ -21,22 +21,16 @@ AGENT_PID="$$"
 TASK="verify"
 LOG="$CWD/.agents/${NVIM_PID}-${AGENT_PID}-${TASK}.log"
 mkdir -p "$CWD/.agents"
-W=$(tmux display-message -p '#{window_width}')
-H=$(tmux display-message -p '#{window_height}')
-PX=$((W * 48 / 100))
-PY=$((H * 40 / 100))
-PW=$((W * 28 / 100))
-PH=$((H * 31 / 100))
 tmux display-popup \
   -t "$(tmux display-message -p '#{pane_id}')" \
   -T "verify" \
-  -w "$PW" -h "$PH" \
-  -x "$PX" -y "$PY" \
+  -w '15%' -h '60%' \
+  -x R -y C \
   -d "$CWD" \
-  "bash -c '<VERIFY_COMMAND> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; echo; echo \"exit: \$ec\" | tee -a $LOG; read -p \"[press esc to close]\"'"
+  "bash -c '<VERIFY_COMMAND> 2>&1 | tee $LOG; ec=\${PIPESTATUS[0]}; printf \"\\nexit: %s\\n\" \"\$ec\" | tee -a $LOG; read -r -p \"[press Escape to close] \"'"
 ```
 
-Then read the log and report what the check found. If the claim turns out to be wrong, say so plainly and correct it.
+Poll `LOG` until the `exit: <code>` marker appears, then read the log and report what the check found. If the popup closes before the marker appears, the result is unknown. If the claim turns out to be wrong, say so plainly and correct it.
 
 ## Step 1: Detect the test command
 
@@ -57,7 +51,7 @@ memory write "watch-tests-<repo>" tags=[watch-tests] content="<test command>"
 
 ## Step 2: Launch the test run
 
-Use the `tmux-ctrl` skill's split-pane pattern (option 2). This gives the user a visible pane with the test output and gives the agent a deterministic log file to read.
+Use the `tmux-ctrl` skill's split-pane pattern (option 2) unless the user chooses a popup. Either way, send output and an `exit: <code>` marker to a deterministic log file. A popup remains visible after tests finish until the user presses Escape; poll the log while it is open rather than waiting for it to close. Never infer test success from the popup's lifetime or the `tmux display-popup` command's exit status.
 
 ```bash
 CWD="$(pwd)"
@@ -79,7 +73,7 @@ tmux send-keys -t "$NEW_PANE" -l "bash -c '<TEST_COMMAND> 2>&1 | tee $LOG; ec=\$
 tmux send-keys -t "$NEW_PANE" Enter
 ```
 
-Ask the user before the first `split-window` (per the tmux-ctrl confirmation rule). Subsequent re-runs in the same pane do not need re-confirmation.
+Ask the user before the first `split-window` (per the tmux-ctrl confirmation rule). Subsequent re-runs in the same pane do not need re-confirmation. For a popup, use the popup pattern in "Verifying a claim" above, replacing `<VERIFY_COMMAND>` with `<TEST_COMMAND>`; keep its `tee`, `PIPESTATUS[0]`, and `exit: <code>` marker intact.
 
 ## Step 3: Wait for the result
 
@@ -91,7 +85,7 @@ tail -5 "$LOG"
 
 - If `exit: 0` is present: all tests passed.
 - If `exit: <nonzero>` is present: tests failed. Proceed to Step 4.
-- If neither is present: the test run is still going. Wait up to 10 seconds, then check again. Repeat.
+- If neither is present: the result is not yet known. While the popup or pane is running, wait up to 10 seconds, then check again. If it closes without a marker, report the result as unknown.
 
 If the user is iterating (editing code while tests run), the test runner (cargo, go test, pytest, vitest) will pick up the next run automatically if it is in watch mode. If not in watch mode, re-run the test command in the same pane (send-keys to `$NEW_PANE`).
 
@@ -125,10 +119,10 @@ The log file is overwritten (tee truncates by default). Go back to Step 3.
 
 ## Step 7: Done
 
-When all tests pass:
+When all tests pass (confirmed by the log marker):
 
-1. Report which files were changed and what was fixed.
-2. Ask the user: "Close the test pane? (yes / no)"
+1. Report which files were changed and what was fixed. For a popup, the user dismisses it; do not try to kill it.
+2. For a split, ask the user: "Close the test pane? (yes / no)"
    - Yes: `tmux kill-pane -t "$NEW_PANE"` (ask again per the tmux-ctrl kill confirmation rule)
    - No: leave it.
 3. Ask the user: "Keep watching as you make more changes? (yes / no)"
