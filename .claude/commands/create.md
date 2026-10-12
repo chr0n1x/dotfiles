@@ -4,7 +4,7 @@ description: Checkpoints for writing code, docs, PR text and reports. Use before
 user-invocable: true
 ---
 
-# Create - /create (aliases: /code, /write)
+# Create - /create (aliases: /code, /write, /style)
 
 Two checkpoints. Each step is mechanical: do it, then continue.
 

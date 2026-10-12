@@ -60,6 +60,10 @@ If `$ARGUMENTS` has a commit message, use it. Otherwise go to Step 4.
 
 **Split unrelated changes into separate commits.**
 
+**Style:** follow the `create` skill's style pass and the system prompt
+(answer first, no recap, no emdashes, no LLM-speak, fewest words that
+keep the facts).
+
 **Examples:**
 ```
 fix: pin kreaps pods to arm64 nodes

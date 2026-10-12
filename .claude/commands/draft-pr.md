@@ -33,7 +33,7 @@ Use the repo's convention. Find it with `gh pr list --state merged --limit 5 --j
 
 ## Body
 
-Find the template: `.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_request_template.md`, `docs/`, the repo root, or a `PULL_REQUEST_TEMPLATE/` directory (if several, ask which). Use its headings in its order. Delete a section only if it is empty. Read the last few merged PRs (`gh pr list --state merged --limit 3`, then `gh pr view <n>`) and match their tone and length.
+Find the template: `.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_request_template.md`, `docs/`, the repo root, or a `PULL_REQUEST_TEMPLATE/` directory (if several, ask which). Use its headings in its order. Delete a section only if it is empty. Read the last few merged PRs (`gh pr list --state merged --limit 3`, then `gh pr view <n>`) and match their tone and length. Apply the `create` skill's style pass and the system prompt's style rules to the body (answer first, no recap, no emdashes, no LLM-speak, fewest words).
 
 If there is no template, use:
 
