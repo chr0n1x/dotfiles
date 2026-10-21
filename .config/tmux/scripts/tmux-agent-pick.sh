@@ -19,12 +19,29 @@ MAKI_SESSIONS="$HOME/.maki/sessions"
 COPILOT_STORE="$HOME/.copilot/session-store.db"
 COPILOT_STATE="$HOME/.copilot/session-state"
 PI_SESSIONS="$HOME/.pi/agent/sessions"
-AGENT_NAMES="claude maki aider codex devin opencode copilot cline pi crush"
+# pig (the Go wrapper around pi) keeps its own config root and never reads ~/.pi.
+PIG_SESSIONS="$HOME/.pig/agent/sessions"
+# Fixed picker column widths, so the columns to their right sit at the same
+# spot every time the popup opens instead of following the longest entry.
+# DIR_COLS fits a fish-shortened path like ~/C/A/adobe-chat-harness; longer
+# ones are cut from the left. AGENT_COLS is the longest name in AGENT_NAMES
+# (opencode); a longer pane command still widens the column.
+DIR_COLS=24
+AGENT_COLS=8
+AGENT_NAMES="claude maki aider codex devin opencode copilot cline pi pig crush"
 # Python for json/sqlite lookups. Override with PYTHON_BIN to point at a
 # specific interpreter (e.g. a pyenv shim or /usr/bin/python3 where the default
 # python3 is something else). Empty = no python: labels are skipped and status
 # falls back to the child-process check; column alignment degrades to tab stops.
-PYTHON_BIN="${PYTHON_BIN:-$(command -v python3 2>/dev/null || true)}"
+# Found by walking $PATH in-shell: a $(command -v) subshell costs a fork.
+if [ -z "${PYTHON_BIN:-}" ]; then
+    _ifs=$IFS; IFS=:
+    for _d in $PATH; do
+        [ -x "$_d/python3" ] && { PYTHON_BIN="$_d/python3"; break; }
+    done
+    IFS=$_ifs; unset _ifs _d
+fi
+PYTHON_BIN="${PYTHON_BIN:-}"
 # A bad override (pointing at a missing interpreter) counts as no python.
 [ -n "$PYTHON_BIN" ] && [ -x "$PYTHON_BIN" ] || PYTHON_BIN=""
 
@@ -52,36 +69,239 @@ copilot_session_dir() {
     [ -n "$newest" ] && dirname "$newest"
 }
 
-# "pid name" for the agent process in a pane, or empty. $1 is the pane's shell
-# pid (pane_pid). One ps snapshot, one awk pass: computes the pane's whole
-# process subtree (descendants of the shell) so agents run inside nvim --embed
-# or tmux-in-tmux are still found, then returns the first pid whose command
-# basename matches an agent name, honoring AGENT_NAMES priority order. Command
-# basename is stripped so it works on both GNU (comm=name) and BSD/macOS
-# (comm=/full/path) ps.
-pane_agent_pid() {
-    local root_pid="$1" snap="$2"
-    [ -n "$root_pid" ] || return
-    printf '%s\n' "$snap" | awk -v root="$root_pid" -v names="$AGENT_NAMES" '
-        { pid[NR]=$1; ppid[$1]=$2; c=$3; sub(/.*\//,"",c); comm[$1]=c }
+# Agent process for every pane, from one ps snapshot ("pid ppid comm" on stdin)
+# and one awk pass. $1 is the space-separated list of pane shell pids. For each
+# pid, walks its whole process subtree (so agents run inside nvim --embed or
+# tmux-in-tmux are still found) and picks the first pid, in ps order, whose
+# command basename matches an agent name, honoring AGENT_NAMES priority order.
+# Command basename is stripped so it works on both GNU (comm=name) and
+# BSD/macOS (comm=/full/path) ps. Prints one "<shell pid>|<pid> <name>" line per
+# input pid, in order, with nothing after the | when the pane runs no agent.
+pane_agents() {
+    awk -v roots="$1" -v names="$AGENT_NAMES" '
+        { pid[NR]=$1; c=$3; sub(/.*\//,"",c); comm[$1]=c; kids[$2]=kids[$2] " " $1 }
         END {
             n=split(names, order, " ")
-            desc[root]=1
-            changed=1
-            while (changed) {
-                changed=0
-                for (i=1;i<=NR;i++) {
-                    p=pid[i]
-                    if (!(p in desc) && (ppid[p] in desc)) { desc[p]=1; changed=1 }
+            m=split(roots, R, " ")
+            for (r=1; r<=m; r++) {
+                root=R[r]
+                split("", desc)
+                desc[root]=1; q[1]=root; qh=1; qt=1
+                while (qh<=qt) {
+                    k=split(kids[q[qh++]], ch, " ")
+                    for (i=1; i<=k; i++)
+                        if (!(ch[i] in desc)) { desc[ch[i]]=1; q[++qt]=ch[i] }
                 }
+                found=""
+                for (o=1; o<=n && found==""; o++)
+                    for (i=1; i<=NR; i++)
+                        if ((pid[i] in desc) && comm[pid[i]]==order[o]) { found=pid[i] " " order[o]; break }
+                print root "|" found
             }
-            for (k=1;k<=n;k++)
-                for (i=1;i<=NR;i++) {
-                    p=pid[i]
-                    if ((p in desc) && comm[p]==order[k]) { print p, order[k]; exit }
-                }
         }'
 }
+
+# Status + label for every pane in one python run (each python start costs
+# ~50-100ms, and the per-pane lookups used to start it 2-3 times per pane).
+# argv: claude sessions, claude projects, maki sessions, copilot store, copilot
+# state, pi sessions, pig sessions. $AGENT_PICK_SNAP holds the "pid ppid comm"
+# ps snapshot. stdin: one "pane_id \t agent \t pid \t cwd" line per pane (agent
+# and pid empty when the pane runs none). stdout: one "status \037 label" line
+# per input line, in the same order; status is empty for agent-less panes. The
+# separator is \037, not tab, so an empty status survives read.
+read -r -d '' AGENT_PY <<'PY'
+import glob, json, os, re, sqlite3, sys
+
+(claude_sessions, claude_projects, maki_sessions, copilot_store,
+ copilot_state, pi_sessions, pig_sessions) = sys.argv[1:8]
+
+kids = {}
+for ln in os.environ.get("AGENT_PICK_SNAP", "").splitlines():
+    f = ln.split()
+    if len(f) >= 2:
+        kids[f[1]] = kids.get(f[1], 0) + 1
+
+
+def ro(db):
+    return sqlite3.connect("file:" + db + "?mode=ro", uri=True)
+
+
+def tail(path, n):
+    with open(path, "rb") as fh:
+        fh.seek(0, 2)
+        fh.seek(max(0, fh.tell() - 262144))
+        data = fh.read().decode("utf-8", "replace")
+    return data.splitlines()[-n:]
+
+
+def newest(paths):
+    paths = [x for x in paths if os.path.exists(x)]
+    return max(paths, key=os.path.getmtime) if paths else None
+
+
+def pi_file(root, cwd):
+    # --<cwd>-- with the leading slash stripped and /, \, : turned into -.
+    if not cwd:
+        return None
+    d = os.path.join(root, "--" + re.sub(r"[/\\:]", "-", cwd[1:] if cwd.startswith("/") else cwd) + "--")
+    return newest(glob.glob(os.path.join(d, "*.jsonl")))
+
+
+def copilot_dir(pid):
+    # A copilot process can hold inuse.<pid>.lock in several session dirs
+    # (resumed sessions leave stale locks). The live one has the newest
+    # events.jsonl; with no events anywhere, the newest lock wins.
+    locks = glob.glob(os.path.join(copilot_state, "inuse.%s.lock" % pid)) + \
+        glob.glob(os.path.join(copilot_state, "*", "inuse.%s.lock" % pid))
+    if not locks:
+        return None
+    ev = newest([os.path.join(os.path.dirname(x), "events.jsonl") for x in locks])
+    return os.path.dirname(ev) if ev else os.path.dirname(newest(locks))
+
+
+def child_status(pid):
+    return "working" if kids.get(pid, 0) > 0 else "idle"
+
+
+def status(name, pid, cwd):
+    if name == "copilot":
+        # A turn_start with no later turn_end means a turn is in progress. The
+        # child check is unusable: copilot keeps helper subprocesses when idle.
+        d = copilot_dir(pid)
+        if not d:
+            return "unknown"
+        ev = os.path.join(d, "events.jsonl")
+        if not os.path.exists(ev):
+            return "idle"
+        marks = re.findall(r'"assistant\.turn_(start|end)"', "\n".join(tail(ev, 400)))
+        return "working" if marks and marks[-1] == "start" else "idle"
+    if name == "pig":
+        # pig keeps a node child (its extension runtime) alive, so read the
+        # turn state instead: the last message being an assistant that stopped
+        # (stop/aborted/error) means idle; anything else in flight is working.
+        f = pi_file(pig_sessions, cwd)
+        if not f:
+            return "idle"
+        last = None
+        for ln in tail(f, 200):
+            try:
+                e = json.loads(ln)
+            except Exception:
+                continue
+            if e.get("type") == "message" and isinstance(e.get("message"), dict):
+                last = e["message"]
+        if last is None or last.get("role") == "system":
+            return "idle"
+        if last.get("role") == "assistant" and last.get("stopReason") in ("stop", "aborted", "error"):
+            return "idle"
+        return "working"
+    if name == "crush":
+        # Only assistant messages ever get finished_at, so a newest message
+        # with finished_at NULL means a turn is in progress.
+        db = os.path.join(cwd, ".crush", "crush.db")
+        if not os.path.exists(db):
+            return "unknown"
+        r = ro(db).execute("SELECT finished_at FROM messages ORDER BY created_at DESC, rowid DESC LIMIT 1").fetchone()
+        return "working" if (r is not None and r[0] is None) else "idle"
+    if name == "claude":
+        f = os.path.join(claude_sessions, pid + ".json")
+        if os.path.exists(f):
+            try:
+                st = json.load(open(f)).get("status", "")
+            except Exception:
+                st = ""
+            if st == "busy":
+                return "working"
+            if st:
+                return "idle"
+    # Child check: maki and the rest show tool/bash execution as a child
+    # process; pure text generation has no per-pid signal.
+    return child_status(pid)
+
+
+def label(name, pid, cwd):
+    if name == "claude":
+        # A user rename lives in the session file's name (nameSource absent or
+        # not "derived"); otherwise the last ai-title in the project jsonl.
+        d = json.load(open(os.path.join(claude_sessions, pid + ".json")))
+        if d.get("name") and d.get("nameSource", "") != "derived":
+            return d["name"]
+        sid = d.get("sessionId", "looked-up-below")
+        proj = (glob.glob(os.path.join(claude_projects, sid + ".jsonl")) +
+                glob.glob(os.path.join(claude_projects, "*", sid + ".jsonl")))
+        if not proj:
+            return ""
+        last = ""
+        for ln in open(proj[0], encoding="utf-8", errors="replace"):
+            if '"ai-title"' in ln:
+                last = ln
+        return json.loads(last).get("aiTitle", "") if last else ""
+    if name == "maki":
+        # cwd_latest.json maps cwd -> sid of the newest session started there.
+        sid = json.load(open(os.path.join(maki_sessions, "cwd_latest.json"))).get(cwd, "")
+        if not sid:
+            return ""
+        last = ""
+        for ln in open(os.path.join(maki_sessions, sid + ".jsonl"), encoding="utf-8", errors="replace"):
+            if '"t":"meta"' in ln:
+                last = ln
+        return json.loads(last).get("title", "") if last else ""
+    if name in ("pi", "pig"):
+        # Last session_info.name (user/auto title), else the first user message.
+        f = pi_file(pig_sessions if name == "pig" else pi_sessions, cwd)
+        if not f:
+            return ""
+        nm = first = ""
+        for ln in open(f, encoding="utf-8", errors="replace"):
+            try:
+                e = json.loads(ln)
+            except Exception:
+                continue
+            if e.get("type") == "session_info" and e.get("name"):
+                nm = e["name"]
+            elif not first and e.get("type") == "message":
+                m = e.get("message", {})
+                if m.get("role") == "user":
+                    c = m.get("content", "")
+                    if isinstance(c, list):
+                        c = " ".join(b.get("text", "") for b in c if isinstance(b, dict) and b.get("type") == "text")
+                    first = (c or "").strip().replace("\n", " ")
+        t = nm or first
+        return t[:63] + "\u2026" if len(t) > 64 else t
+    if name == "crush":
+        db = os.path.join(cwd, ".crush", "crush.db")
+        if not os.path.exists(db):
+            return ""
+        r = ro(db).execute("SELECT title FROM sessions ORDER BY updated_at DESC LIMIT 1").fetchone()
+        return r[0] if r and r[0] else ""
+    if name == "copilot":
+        # pid -> exact session via its inuse lock, then that session's summary;
+        # the short session id when it has none yet.
+        if not os.path.exists(copilot_store):
+            return ""
+        d = copilot_dir(pid)
+        if not d:
+            return ""
+        sid = os.path.basename(d)
+        r = ro(copilot_store).execute("SELECT summary FROM sessions WHERE id=?", (sid,)).fetchone()
+        return r[0] if r and r[0] else sid[:8]
+    return ""
+
+
+for ln in sys.stdin:
+    pane, name, pid, cwd = (ln.rstrip("\n").split("\t") + ["", "", "", ""])[:4]
+    st = lb = ""
+    if name:
+        try:
+            st = status(name, pid, cwd)
+        except Exception:
+            st = "unknown"
+        try:
+            lb = label(name, pid, cwd) or ""
+        except Exception:
+            lb = ""
+    print(st + "\037" + re.sub(r"[\t\r\n\037]+", " ", lb).strip())
+PY
 
 # Kill the whole process subtree rooted at a pane's shell pid, so agents and
 # long-lived children (nvim --embed, podman-compose, ssh) don't outlive the
@@ -126,30 +346,24 @@ kill_pane_tree() {
     done
 }
 
-# working | idle | unknown. $1 is the precomputed "pid name" from pane_agent_pid
-# (may be empty). $2 is the pane's cwd (reserved for future use). claude uses
-# its own session file; copilot uses its per-session events.jsonl turn markers;
-# maki and all other agents use the child-process check. No agent = idle.
+
+# working | idle | unknown, without python (the AGENT_PY batch handles the
+# python case). $1 is "pid name" from pane_agents, $2 the pane's cwd (unused),
+# $3 the ps snapshot. copilot reads its per-session events.jsonl turn markers
+# (the child check is unusable: it keeps helper subprocesses when idle). pig
+# keeps a node child alive the whole time, and its turn state needs json, so it
+# is unknown here. Everything else uses the child-process check.
 pane_status() {
-    local info="$1" cwd="${2:-}" snap="${3:-}" pid name kids
+    local info="$1" snap="${3:-}" pid name kids
     [ -n "$info" ] || { echo idle; return; }
     pid="${info%% *}"
     name="${info##* }"
-    # claude/copilot/crush need python (json/sqlite). Without it, fall through
-    # to the child-process check below, which is pure ps/awk.
-    if [ "$name" = claude ] || [ "$name" = copilot ] || [ "$name" = crush ]; then
-        [ -n "$PYTHON_BIN" ] || {
-            kids=$(printf '%s\n' "$snap" | awk -v p="$pid" '$2==p {c++} END {print c+0}')
-            [ "${kids:-0}" -gt 0 ] && { echo working; return; }
-            echo idle
-            return
-        }
+    if [ "$name" = pig ]; then
+        echo unknown
+        return
     fi
-    # copilot exposes turn lifecycle in its per-session events.jsonl. Map the
-    # pid -> session dir and read the last assistant.turn_start/turn_end marker:
-    # a start with no following end means a turn is in progress = working. No
-    # events file yet (fresh session) or a trailing end = idle. The child check
-    # is unusable for copilot: it spawns helper subprocesses even when idle.
+    # A start with no following end means a turn is in progress = working. No
+    # events file yet (fresh session) or a trailing end = idle.
     if [ "$name" = copilot ]; then
         local dir ev state
         dir=$(copilot_session_dir "$pid")
@@ -162,184 +376,13 @@ pane_status() {
             *)            echo idle; return ;;
         esac
     fi
-    # crush's per-project SQLite db tracks message lifecycle: only assistant
-    # messages ever get a finished_at; tool/user rows stay NULL. At rest the
-    # newest message is a finished assistant; mid-turn it's an unfinished row
-    # (streaming assistant, or a tool/user row awaiting a reply). So the newest
-    # message having finished_at NULL means a turn is in progress = working.
-    # This catches pure text generation, which the child check misses.
-    if [ "$name" = crush ]; then
-        local db="$cwd/.crush/crush.db" w
-        [ -f "$db" ] || { echo unknown; return; }
-        w=$("$PYTHON_BIN" -c "
-import sqlite3,sys
-try:
-    c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
-    r=c.execute('SELECT finished_at FROM messages ORDER BY created_at DESC, rowid DESC LIMIT 1').fetchone()
-    print(1 if (r is not None and r[0] is None) else 0)
-except Exception:
-    print(-1)
-" "$db" 2>/dev/null)
-        case "$w" in
-            1)  echo working; return ;;
-            0)  echo idle; return ;;
-            *)  echo unknown; return ;;
-        esac
-    fi
-    if [ "$name" = claude ]; then
-        local f="$CLAUDE_SESSIONS/$pid.json" status
-        if [ -f "$f" ]; then
-            status=$("$PYTHON_BIN" -c "import json,sys; print(json.load(open(sys.argv[1])).get('status',''))" "$f" 2>/dev/null)
-            case "$status" in
-                busy)    echo working; return ;;
-                '')  : ;; # unreadable/missing field: fall through to child check
-                *)       echo idle; return ;;
-            esac
-        fi
-    fi
     # Portable child check: BSD ps (macOS) has no --ppid, so count ppid matches
-    # in a snapshot instead. Works on both GNU and BSD ps. For maki this catches
-    # tool/bash execution (a real subprocess) but not pure text generation,
-    # which maki does in-process via its model backend with no observable
-    # per-pid signal.
+    # in a snapshot instead. Works on both GNU and BSD ps.
     kids=$(printf '%s\n' "$snap" | awk -v p="$pid" '$2==p {c++} END {print c+0}')
     [ "${kids:-0}" -gt 0 ] && { echo working; return; }
     echo idle
 }
 
-# Session name for a pane, or empty (caller falls back to window/session name).
-# $1 is the precomputed "pid name" from pane_agent_pid; $2 is the pane_id.
-session_label() {
-    local info="$1" pane_id="$2" pid name f sid title proj
-    [ -n "$info" ] || return
-    # All label lookups are json/sqlite via $PYTHON_BIN; without it, no labels.
-    [ -n "$PYTHON_BIN" ] || return
-    pid="${info%% *}"
-    name="${info##* }"
-    case "$name" in
-        claude)
-            # A user rename lives in the session file's "name" (nameSource is
-            # absent or not "derived"). Prefer that; otherwise fall back to the
-            # ai-title in the project jsonl (the session file's derived name is
-            # not the real ai-title).
-            f="$CLAUDE_SESSIONS/$pid.json"
-            [ -f "$f" ] || return
-            sid=$("$PYTHON_BIN" -c "
-import json,sys
-d=json.load(open(sys.argv[1]))
-name=d.get('name','')
-if name and d.get('nameSource','') != 'derived':
-    print('\t'+name)          # leading tab flags a user-set name
-else:
-    print(d.get('sessionId','looked-up-below'))
-" "$f" 2>/dev/null)
-            case "$sid" in
-                $'\t'*) printf '%s' "${sid#$'\t'}"; return ;;
-            esac
-            [ -n "$sid" ] || return
-            proj=$(find "$CLAUDE_PROJECTS" -maxdepth 2 -name "$sid.jsonl" 2>/dev/null | head -1)
-            [ -n "$proj" ] || return
-            title=$(grep '"ai-title"' "$proj" 2>/dev/null | tail -1 | "$PYTHON_BIN" -c "import json,sys; print(json.loads(sys.stdin.read()).get('aiTitle',''))" 2>/dev/null)
-            printf '%s' "$title"
-            ;;
-        maki)
-            # Session id is the jsonl filename stem. cwd_latest.json maps
-            # cwd -> sid of the most recent session started in that dir.
-            local cwd
-            cwd=$(tmux display-message -p -t "$pane_id" '#{pane_current_path}' 2>/dev/null)
-            [ -n "$cwd" ] || return
-            sid=$("$PYTHON_BIN" -c "import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],''))" "$MAKI_SESSIONS/cwd_latest.json" "$cwd" 2>/dev/null)
-            [ -n "$sid" ] || return
-            f="$MAKI_SESSIONS/$sid.jsonl"
-            [ -f "$f" ] || return
-            title=$(grep '"t":"meta"' "$f" 2>/dev/null | tail -1 | "$PYTHON_BIN" -c "import json,sys; print(json.loads(sys.stdin.read()).get('title',''))" 2>/dev/null)
-            printf '%s' "$title"
-            ;;
-        pi)
-            # pi keys its session dir off the cwd: --<cwd>-- with the leading
-            # slash stripped and /, \\, : turned into - (see
-            # jsonlSessionDirectoryName in the pi bundle). macOS won't expose a
-            # process's env, so the exact PI_SESSION_FILE isn't reachable by
-            # pid; instead take the most recently modified session file in that
-            # dir (matches maki's cwd-latest behaviour). Label is the last
-            # session_info.name (user/auto title), else the first user message.
-            local cwd dir
-            cwd=$(tmux display-message -p -t "$pane_id" '#{pane_current_path}' 2>/dev/null)
-            [ -n "$cwd" ] || return
-            dir="$PI_SESSIONS/--$(printf '%s' "$cwd" | sed -e 's#^/##' -e 's#[/\\:]#-#g')--"
-            [ -d "$dir" ] || return
-            f=$(find "$dir" -maxdepth 1 -name '*.jsonl' 2>/dev/null | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1)
-            [ -n "$f" ] || return
-            title=$("$PYTHON_BIN" -c "
-import json,sys
-name=first=''
-for line in open(sys.argv[1]):
-    try: e=json.loads(line)
-    except Exception: continue
-    if e.get('type')=='session_info' and e.get('name'):
-        name=e['name']
-    elif not first and e.get('type')=='message':
-        m=e.get('message',{})
-        if m.get('role')=='user':
-            c=m.get('content','')
-            if isinstance(c,list):
-                c=' '.join(b.get('text','') for b in c if isinstance(b,dict) and b.get('type')=='text')
-            first=(c or '').strip().replace(chr(10),' ')
-t=name or first
-if len(t)>64: t=t[:63]+chr(8230)
-print(t)
-" "$f" 2>/dev/null)
-            printf '%s' "$title"
-            ;;
-        crush)
-            # crush keeps a per-project SQLite db at <cwd>/.crush/crush.db
-            # (created in the dir crush is launched from). Take the most
-            # recently updated session's title. Read-only open so the live WAL
-            # db isn't disturbed. cwd->db mapping, like maki/pi, since macOS
-            # won't expose the pid's exact session.
-            local cwd db
-            cwd=$(tmux display-message -p -t "$pane_id" '#{pane_current_path}' 2>/dev/null)
-            [ -n "$cwd" ] || return
-            db="$cwd/.crush/crush.db"
-            [ -f "$db" ] || return
-            title=$("$PYTHON_BIN" -c "
-import sqlite3,sys
-try:
-    c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
-    r=c.execute('SELECT title FROM sessions ORDER BY updated_at DESC LIMIT 1').fetchone()
-    print(r[0] if r and r[0] else '')
-except Exception:
-    print('')
-" "$db" 2>/dev/null)
-            printf '%s' "$title"
-            ;;
-        copilot)
-            # Map this pane's copilot pid -> its exact session via the inuse
-            # lock, then look up that session's summary by id. Mapping by cwd
-            # instead would grab the newest session sharing the directory, which
-            # shows a sibling session's title (or a stale one). Read-only open so
-            # the live WAL db isn't disturbed.
-            [ -f "$COPILOT_STORE" ] || return
-            local dir sid
-            dir=$(copilot_session_dir "$pid")
-            [ -n "$dir" ] || return
-            sid=$(basename "$dir")
-            title=$("$PYTHON_BIN" -c "
-import sqlite3,sys
-try:
-    c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True)
-    r=c.execute('SELECT summary FROM sessions WHERE id=?',(sys.argv[2],)).fetchone()
-    print(r[0] if r and r[0] else '')
-except Exception:
-    print('')
-" "$COPILOT_STORE" "$sid" 2>/dev/null)
-            # No summary yet (fresh/unnamed session): fall back to the short
-            # session id so the row is still identifiable.
-            [ -n "$title" ] || title="${sid:0:8}"
-            printf '%s' "$title"
-            ;;
-    esac
-}
 
 # $1=status (working|idle), $2=selected pane? (1/0). The current pane gets a
 # star; other panes keep their shape. Color encodes agent state.
@@ -362,28 +405,22 @@ agent_color() {
         maki)     printf '\033[38;2;110;185;240m%s\033[0m' "$1" ;;  # light cerulean
         copilot)  printf '\033[38;2;170;120;255m%s\033[0m' "$1" ;;  # purple
         pi)       printf '\033[38;2;255;255;255m%s\033[0m' "$1" ;;  # white (pi.dev logo)
+        pig)      printf '\033[38;2;61;220;110m%s\033[0m' "$1" ;;  # green (#3ddc6e, nvim idle checkmark)
         crush)    printf '\033[38;2;255;96;255m%s\033[0m' "$1" ;;  # charm magenta
         *)        printf '%s' "$1" ;;
     esac
 }
 
-# One tab-delimited row for a single pane. Reads ps_snap/win_w/current_pane
-# from the enclosing emit_rows scope (inherited by the backgrounded subshell).
+# One tab-delimited row for a single pane. $7-$9 are its agent name, status
+# and session label (all empty when the pane runs no agent). Reads
+# win_w/current_pane from the enclosing emit_rows scope.
 # Fields: pin, target(pane:<sess>), win, window-name-or-sessname, dir, icon,
 # agent, title. The name+dir are carried per pane so emit_rows can build the
 # window header from its first pane row.
 pane_row() {
-    local session="$1" win="$2" pane="$3" title="$4" cwd="$5" panepid="$6" cmd="${7:-}"
-    local info agent status selected icon asession budget label dir
-    info=$(pane_agent_pid "$panepid" "$ps_snap")
-    if [ -n "$info" ]; then
-        agent="${info##* }"
-        status=$(pane_status "$info" "$cwd" "$ps_snap")
-    else
-        agent=""
-        status=""
-    fi
-    asession=$(session_label "$info" "$pane")
+    local session="$1" win="$2" pane="$3" title="$4" cwd="$5" cmd="${6:-}"
+    local agent="${7:-}" status="${8:-}" asession="${9:-}"
+    local selected icon budget label dir
     selected=0
     [ "$pane" = "$current_pane" ] && selected=1
     if [ -n "$agent" ]; then
@@ -396,12 +433,28 @@ pane_row() {
         ''|*[!0-9]*) label="$title" ;;
         *)           label="$session" ;;
     esac
-    # Show the working dir relative to $HOME for compactness, dimmed.
+    # Show the working dir relative to $HOME for compactness, dimmed, with every
+    # parent dir cut to its first letter (fish-style: ~/C/A/dory-deploy) so one
+    # long path can't widen the column for every row. Dot-dirs keep the letter
+    # after the dot (~/.c/nvim). Pure parameter expansion: no subshells.
     case "$cwd" in
         "$HOME")   dir="~" ;;
         "$HOME"/*) dir="~${cwd#"$HOME"}" ;;
         *)         dir="$cwd" ;;
     esac
+    local short="" part rest="$dir"
+    while [[ "$rest" == */* ]]; do
+        part=${rest%%/*}
+        rest=${rest#*/}
+        case "$part" in
+            ''|'~') short="$short$part/" ;;
+            .*)     short="$short${part:0:2}/" ;;
+            *)      short="$short${part:0:1}/" ;;
+        esac
+    done
+    dir="$short$rest"
+    # Longer than the fixed column (a long last dir name): keep the end.
+    [ "${#dir}" -gt "$DIR_COLS" ] && dir="…${dir: -$((DIR_COLS - 1))}"
     dir=$(printf '\033[2m%s\033[0m' "$dir")
     # Truncate the agent session title to fit the popup width (90% of window).
     if [ -n "$asession" ]; then
@@ -422,119 +475,113 @@ pane_row() {
 # Pane-row fields before grouping:
 # pin \t pane:<sess> \t win \t name \t dir \t icon \t agent \t title \t cmd.
 emit_rows() {
-    local fmt current_pane ps_snap win_w tmpd n=0
+    local fmt current_pane ps_snap win_w panes roots="" agents results="" input=""
+    local session win pane title cwd panepid cmd line info st lb
+    local tab=$'\t' us=$'\037'
     fmt=$(printf '#{session_name}\t#{window_index}\t#{pane_id}\t#{window_name}\t#{pane_current_path}\t#{pane_pid}\t#{pane_current_command}')
-    current_pane=$(tmux display-message -p '#{pane_id}' 2>/dev/null)
-    # One ps snapshot and one width lookup for the whole run, threaded into the
-    # per-pane helpers below (previously each pane forked its own ps + tmux).
+    # One ps snapshot, one width lookup, one agent scan and one python run for
+    # the whole list: every process start costs tens of ms, so per-pane lookups
+    # were most of the popup's open time.
     ps_snap=$(ps -eo pid=,ppid=,comm= 2>/dev/null)
-    win_w=$(tmux display-message -p '#{window_width}' 2>/dev/null) || win_w=180
+    read -r current_pane win_w <<<"$(tmux display-message -p '#{pane_id} #{window_width}' 2>/dev/null)"
     [ "$win_w" -ge 10 ] 2>/dev/null || win_w=180
-    tmpd=$(mktemp -d "${TMPDIR:-/tmp}/tmux-agent-pick.XXXXXX") || return
-    # Each pane's row is independent (agent detection, status, title lookups),
-    # so compute them all in parallel. Zero-padded filenames keep the glob in
-    # pane order, so the stable sort below reproduces the serial ordering.
+    panes=$(tmux list-panes -a -F "$fmt" 2>/dev/null)
     while IFS=$'\t' read -r session win pane title cwd panepid cmd; do
-        n=$((n + 1))
-        pane_row "$session" "$win" "$pane" "$title" "$cwd" "$panepid" "$cmd" \
-            > "$tmpd/$(printf '%03d' "$n")" &
-    done < <(tmux list-panes -a -F "$fmt" 2>/dev/null)
-    wait
-    cat "$tmpd"/* 2>/dev/null > "$tmpd/all"
-    # Order: active pane first, then panes with a detected agent (by window
-    # index), then the rest. The pin column (field 1) is stripped last so the
-    # sort keys below stay aligned; field 3 is the window index, field 7 the
-    # agent name (empty = none).
-    { grep -a "^1	" "$tmpd/all" 2>/dev/null || true; \
-      grep -av "^1	" "$tmpd/all" 2>/dev/null | sort -s -t$'\t' -k7,7r -k3,3n -k6,6; } \
-      | cut -f2- > "$tmpd/ordered"
-    # ordered lines: target \t win \t name \t dir \t icon \t agent \t title \t cmd.
-    # Group by window index (field 2) so each window's panes stay together even
-    # though the active-pane-first / agent-desc sort can interleave windows. The
-    # first-seen order of windows is preserved; within a window, pane order is
-    # the sorted order. For each group emit the window-name line first, then its
-    # pane lines below with ├─/└─ tree connectors on the left (htop-style).
-    # Final layout: target \t win \t display. fzf hides fields 1-2 via
-    # --delimiter='\t' --with-nth=3.. and shows only the display column;
-    # --switch/--kill read the win field for both line types. The pane-row display
-    # starts with a fixed 4-col connector (├─ / └─ + space) so the icon column
-    # lines up vertically across all panes in the popup.
-    awk -F'\t' '
+        roots="$roots $panepid"
+    done <<<"$panes"
+    agents=$(printf '%s\n' "$ps_snap" | pane_agents "$roots")
+    # The lists below are zipped line by line on separate fds (no associative
+    # arrays: macOS /bin/bash is 3.2). Fields that can be empty are joined with
+    # \037, not tab: tab is IFS whitespace, so read would collapse empty fields.
+    if [ -n "$PYTHON_BIN" ]; then
+        while IFS=$'\t' read -r session win pane title cwd panepid cmd <&3 && IFS= read -r line <&4; do
+            info=${line#*|}
+            input="$input${pane}${tab}${info##* }${tab}${info%% *}${tab}${cwd}"$'\n'
+        done 3<<<"$panes" 4<<<"$agents"
+        results=$(printf '%s' "$input" | AGENT_PICK_SNAP="$ps_snap" "$PYTHON_BIN" -c "$AGENT_PY" \
+            "$CLAUDE_SESSIONS" "$CLAUDE_PROJECTS" "$MAKI_SESSIONS" "$COPILOT_STORE" \
+            "$COPILOT_STATE" "$PI_SESSIONS" "$PIG_SESSIONS" 2>/dev/null)
+    else
+        # No python: python-free status checks, no labels.
+        while IFS=$'\t' read -r session win pane title cwd panepid cmd <&3 && IFS= read -r line <&4; do
+            info=${line#*|}
+            st=""
+            [ -n "$info" ] && st=$(pane_status "$info" "$cwd" "$ps_snap")
+            results="$results${st}${us}"$'\n'
+        done 3<<<"$panes" 4<<<"$agents"
+    fi
+    while IFS=$'\t' read -r session win pane title cwd panepid cmd <&3 && IFS= read -r line <&4 && IFS="$us" read -r st lb <&5; do
+        info=${line#*|}
+        pane_row "$session" "$win" "$pane" "$title" "$cwd" "$cmd" "${info##* }" "$st" "$lb"
+    done 3<<<"$panes" 4<<<"$agents" 5<<<"$results" |
+    # Order: active pane first (pin, field 1), then panes with a detected agent
+    # (field 7, desc), then window index (field 3). sort -s keeps pane order for
+    # ties, which the zero-padded filenames set.
+    # Then one awk pass groups rows by window index (field 3) so each window's
+    # panes stay together even though the sort can interleave windows. The
+    # first-seen order of windows is preserved. For each group it emits the
+    # window-name line, then its pane lines below with ├─/└─ tree connectors
+    # (htop-style), padding the icon+dir and agent/cmd columns to a shared
+    # width so the tab after each lands on the same terminal column.
+    # Final layout: target \t win \t session \t pane_id \t display. fzf hides
+    # fields 1-4 (--with-nth=5..); the focus bind reads 2-4 directly, and
+    # --switch/--kill read fields 1-2. Window-name rows have an empty pane_id.
+    # With AGENT_PICK_DIMS_FILE set, also writes "<widest display> <rows>" there
+    # so the popup can be sized without measuring the rows again.
+    sort -s -t"$tab" -k1,1r -k7,7r -k3,3n -k6,6 2>/dev/null | LC_ALL=C awk -F'\t' -v dims="${AGENT_PICK_DIMS_FILE:-}" -v dircols="$DIR_COLS" -v agentcols="$AGENT_COLS" '
+        # Display width in characters: ANSI colors stripped. awk runs under
+        # LC_ALL=C so every awk counts bytes and the [\200-\277] class matches
+        # (macOS awk skips it in a UTF-8 locale); subtracting UTF-8
+        # continuation bytes leaves one per character.
+        function width(s,   t, n) {
+            t = s
+            gsub(/\033\[[0-9;]*m/, "", t)
+            n = length(t)
+            if (!utf) n -= gsub(/[\200-\277]/, "", t)
+            return n
+        }
+        # Column 1 is icon (1) + 2 spaces + dir, so its floor is DIR_COLS + 3.
+        BEGIN { utf = (length("\342\224\234") == 1); m1 = dircols + 3; m2 = agentcols }
         {
-            w = $2
+            w = $3
             if (!(w in seen)) {
-                seen[w] = 1; order[++nw] = w; nm[w] = $3
-                # Session name from the pane target (pane:<sess>:<pane_id>), for
-                # the win: line below - kill/switch need the session, not the
-                # window name or pane id.
-                sess = $1; sub(/^pane:/, "", sess); sub(/:.*/, "", sess); sn[w] = sess
+                seen[w] = 1; order[++nw] = w; nm[w] = $4
+                # Session from the pane target (pane:<sess>:<pane_id>).
+                sess = $2; sub(/^pane:/, "", sess); sub(/:.*/, "", sess); sn[w] = sess
             }
-            cnt[w]++
-            # Show the agent name if one is running, else fall back to the pane
-            # current command (best-effort process detection).
-            if ($6 != "") proc = $6; else proc = $8
-            pn[w, cnt[w]] = $1 "\t" $2 "\t" $5 "\t" $4 "\t" proc "\t" $7
+            c = ++cnt[w]
+            # Show the agent name if one is running, else the pane command.
+            proc = ($7 != "") ? $7 : $9
+            ps = $2; sub(/^pane:/, "", ps); sub(/:.*/, "", ps)
+            pid = $2; sub(/.*:/, "", pid)
+            tgt[w, c] = $2; psn[w, c] = ps; pnid[w, c] = pid
+            col1[w, c] = $6 "  " $5; col2[w, c] = proc; ttl[w, c] = $8
+            if (width(col1[w, c]) > m1) m1 = width(col1[w, c])
+            if (width(proc) > m2) m2 = width(proc)
         }
         END {
             for (i = 1; i <= nw; i++) {
                 w = order[i]
-                # Window-name line first (top level, no glyph), then its panes
-                # below with ├─ for all but the last pane and └─ for the last.
-                # Conventional htop order: the branch ends at the final pane.
-                # The connector is exactly 4 display columns (2-byte box char +
-                # 2 spaces) so the icon column lines up across every pane row.
-                # Window-name line flush left; pane rows below it are indented so
-                # the tree glyph sits under the middle of the title, not at the
-                # far left edge.
-                print "win:" sn[w] ":" w "\t" w "\t" nm[w]
+                lines[++nl] = "win:" sn[w] ":" w "\t" w "\t" sn[w] "\t\t" nm[w]
                 for (j = 1; j <= cnt[w]; j++) {
+                    # The connector is exactly 4 display columns plus a space
+                    # so the icon column lines up across every pane row.
                     br = (j < cnt[w]) ? "  ├─ " : "  └─ "
-                    # Prepend the indent + connector to the icon, and glue the
-                    # dir onto the same field with a fixed 2-space gap (not a tab)
-                    # so the icon-to-dir spacing is constant instead of jumping
-                    # to the next tab stop. pn fields: f[3]=icon f[4]=dir
-                    # f[5]=agent f[6]=title.
-                    n = split(pn[w, j], f, "\t")
-                    out = f[1] "\t" f[2] "\t" br f[3] "  " f[4]
-                    for (k = 5; k <= n; k++) out = out "\t" f[k]
-                    print out
+                    a = br col1[w, j]; b = col2[w, j]
+                    a = a sprintf("%" (m1 + 5 - width(a)) "s", "")
+                    b = b sprintf("%" (m2 - width(b)) "s", "")
+                    lines[++nl] = tgt[w, j] "\t" w "\t" psn[w, j] "\t" pnid[w, j] "\t" a "\t" b "\t" ttl[w, j]
                 }
             }
+            for (k = 1; k <= nl; k++) {
+                print lines[k]
+                d = lines[k]
+                sub(/^[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t/, "", d)
+                if (width(d) > mw) mw = width(d)
+            }
+            if (dims != "") print mw, nl > dims
         }
-    ' "$tmpd/ordered" | {
-         # Pad the icon+dir field (index 3) and the agent/cmd field (index 4)
-         # to a shared max width so the tab that follows each one lands on the
-         # same terminal column for every row. Window-name rows have only 3
-         # fields and are left untouched. Without $PYTHON_BIN this is skipped:
-         # columns fall back to tab stops, everything else works.
-         [ -n "$PYTHON_BIN" ] && "$PYTHON_BIN" -c '
-import sys, re
-esc = re.compile(r"\x1b\[[0-9;]*m")
-lines = sys.stdin.read().split("\n")
-rows = [ln.split("\t") if ln != "" else None for ln in lines]
-maxw = {2: 0, 3: 0}
-for r in rows:
-    if r and len(r) == 5:
-        for i in (2, 3):
-            w = len(esc.sub("", r[i]))
-            if w > maxw[i]:
-                maxw[i] = w
-out_lines = []
-for r in rows:
-    if r is None:
-        out_lines.append("")
-        continue
-    if len(r) == 5:
-        for i in (2, 3):
-            pad = maxw[i] - len(esc.sub("", r[i]))
-            if pad > 0:
-                r[i] += " " * pad
-    out_lines.append("\t".join(r))
-sys.stdout.write("\n".join(out_lines))
-' || cat
-    }
-
-    rm -rf "$tmpd"
+    '
 }
 
 # Emit-only mode: used as fzf's input source and reload command.
@@ -672,32 +719,28 @@ legend="enter ⇄    esc ⊘    ^r ↻    ^k ⊗"
 export legend
 min_popup_width=80
 
+# Live navigation preview, fired by fzf on every row the cursor lands on. One
+# tmux call (fields: {2}=window index, {3}=session, {4}=pane id) instead of
+# re-running this script: a bash start plus its cut/tmux calls cost ~170-210ms
+# per arrow key, and execute-silent blocks fzf until it returns. Pane rows
+# switch, select and briefly tint the pane; window-name rows (empty {4}) only
+# switch, so passing a header doesn't flash the same pane twice.
+AGENT_PICK_FOCUS='if [ -n {4} ]; then tmux switch-client -t {3}:{2} \; select-pane -t {4} \; select-pane -t {4} -P bg=colour237 \; run-shell -b -d0.1 "tmux select-pane -t {4} -P bg=default"; else tmux switch-client -t {3}:{2}; fi'
+export AGENT_PICK_FOCUS
+
 # Size the popup to its content: render the rows once, measure the widest
 # visible line (ANSI stripped, counted in display columns) and the row count,
 # then derive width/height clamped to the client. fzf reads the same rows so
 # what we measured is what's shown; ctrl-r reload still re-runs --emit live.
 rows_file=$(mktemp "${TMPDIR:-/tmp}/tmux-agent-pick-rows.XXXXXX")
-emit_rows > "$rows_file" 2>/dev/null
+# emit_rows writes "<widest display line> <row count>" to the dims file while it
+# renders, so the popup is sized from the same pass that built the rows.
+AGENT_PICK_DIMS_FILE="$rows_file.dims" emit_rows > "$rows_file" 2>/dev/null
 
 pop_w=""; pop_h=""
-dims=$("$PYTHON_BIN" - "$rows_file" <<'PY' 2>/dev/null
-import sys, re
-esc = re.compile(r'\x1b\[[0-9;]*m')
-maxw = n = 0
-with open(sys.argv[1], encoding='utf-8', errors='replace') as fh:
-    for line in fh:
-        line = line.rstrip('\n')
-        if not line:
-            continue
-        parts = line.split('\t')
-        # Fields 3+ are the display column (fields 1-2 are the hidden target/win);
-        # fzf joins them with tabs for display, so measure the joined remainder.
-        vis = '\t'.join(parts[2:]) if len(parts) > 2 else line
-        maxw = max(maxw, len(esc.sub('', vis)))
-        n += 1
-print(maxw, n)
-PY
-)
+dims=""
+read -r dims_w dims_h < "$rows_file.dims" 2>/dev/null && dims="$dims_w $dims_h"
+rm -f "$rows_file.dims"
 if [ -n "$dims" ]; then
     content_w=${dims%% *}
     content_h=${dims##* }
@@ -726,12 +769,13 @@ fzf_cmd="cat $rows_file | fzf \
   --ansi --no-sort --exact --cycle \
   --layout=reverse \
   --delimiter='\t' \
-  --with-nth=3.. \
+  --with-nth=5.. \
+  --with-shell='/bin/sh -c' \
   --prompt=' search  ' \
   --header=\"\$AGENT_PICK_HEADER\" \
   --bind=ctrl-j:down \
   --bind='load:change-header:' \
-  --bind=\"focus:execute-silent(bash $script_path --focus {})\" \
+  --bind=\"focus:execute-silent:\$AGENT_PICK_FOCUS\" \
   --bind=\"ctrl-k:execute(bash $script_path --kill {})+reload(bash $script_path --emit)\" \
   --bind=\"esc:execute-silent(tmux switch-client -t '$orig_target')+abort\" \
   --bind=\"ctrl-r:reload(bash $script_path --emit)\" \
@@ -766,10 +810,12 @@ ctitle="${line}${title}${line}"
 if [ -n "$pop_w" ] && [ -n "$pop_h" ]; then
     tmux display-popup -E -w "$pop_w" -h "$pop_h" \
         -e "AGENT_PICK_HEADER=$AGENT_PICK_HEADER" -e "legend=$legend" \
+        -e "AGENT_PICK_FOCUS=$AGENT_PICK_FOCUS" \
         -T "$ctitle" "$fzf_cmd"
 else
     tmux display-popup -E -w "$eff_w" -h 33% \
         -e "AGENT_PICK_HEADER=$AGENT_PICK_HEADER" -e "legend=$legend" \
+        -e "AGENT_PICK_FOCUS=$AGENT_PICK_FOCUS" \
         -T "$ctitle" "$fzf_cmd"
 fi
 rm -f "$rows_file"
