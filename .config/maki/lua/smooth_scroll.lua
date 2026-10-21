@@ -55,6 +55,7 @@ local function start_glide(dir)
   -- scale the trajectory to one half page, keeping the eased shape;
   -- the UI clamps at the true edges
   local half = math.max(1, math.floor(v.height / 2))
+  local target = v.topline + dir * half
   local step = {}
   for i = 1, TAPS do
     step[i] = math.floor(dir * half * (TAPS + 1 - i) / TOTAL)
@@ -66,6 +67,19 @@ local function start_glide(dir)
       topline = topline + step[i]
       set_topline(topline)
       maki.async.sleep(TICK_MS)
+      -- correct drift from the doc_row round-trip at segment boundaries
+      if i < TAPS then
+        local cv, cerr = view()
+        if cv then
+          topline = cv.topline
+          local remaining = target - topline
+          local left = TAPS - i
+          local total_left = left * (left + 1) / 2
+          for j = 1, left do
+            step[i + j] = math.floor(remaining * (left + 1 - j) / total_left)
+          end
+        end
+      end
     end
     glide.task = nil
     glide.dir = 0

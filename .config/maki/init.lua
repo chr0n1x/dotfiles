@@ -18,6 +18,11 @@ if not ok_jump then
   maki.log.warn("edit-jump-nvim: " .. tostring(err_jump))
 end
 
+local ok_task, err_task = pcall(require, "maki_task")
+if not ok_task then
+  maki.log.warn("maki_task: " .. tostring(err_task))
+end
+
 maki.setup({
   -- actually yolo'ing like the millenial I am
   always_yolo = true,
