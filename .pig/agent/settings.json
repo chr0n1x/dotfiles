@@ -1,0 +1,22 @@
+{
+  "theme": "dark",
+  "packages": [
+    "git:github.com/huggingface/pi-llama",
+    "npm:pi-lens",
+    "npm:pi-mcp-adapter",
+    "npm:pi-subagents",
+    "npm:pi-web-access"
+  ],
+  "extensions": [
+    "-builtin:mcp"
+  ],
+  "defaultProvider": "llama-cpp",
+  "defaultModel": "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL",
+  "skills": [
+    "~/.claude/skills"
+  ],
+  "prompts": [
+    "~/.claude/commands"
+  ],
+  "lastChangelogVersion": "1.3.0"
+}
