@@ -31,15 +31,16 @@ if ! command -v docker &> /dev/null && command -v podman &> /dev/null; then
   alias docker=podman
 fi
 
+# HACK: direnv does not support recursive loading of configs
+# https://github.com/direnv/direnv/issues/606
+# pipe to dev null to avoid output for second time
+# sourced before the script loop so scripts can depend on its exports
+[ -f ~/.envrc ] && source ~/.envrc > /dev/null
+
 # TODO: figure out why autoload didn't work here even w/ fpath
 for script in ~/.config/zsh/scripts/*; do
   source $script
 done
-
-# HACK: direnv does not support recursive loading of configs
-# https://github.com/direnv/direnv/issues/606
-# pipe to dev null to avoid output for second time
-[ -f ~/.envrc ] && source ~/.envrc > /dev/null
 
 if [[ -z "$TMUX" && "$AUTO_TMUX" = "true" ]]; then
   export TMUX_INIT=true
