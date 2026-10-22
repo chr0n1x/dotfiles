@@ -1,17 +1,12 @@
 function dex {
-  if docker version &> /dev/null; then
-    docker run -v $PWD:/root/workspace --workdir /root/workspace --rm -ti "$@"
+  local container
+  if command -v podman &> /dev/null && podman version &> /dev/null; then
+    container=podman
+  elif command -v docker &> /dev/null && docker version &> /dev/null; then
+    container=docker
   else
-    echo "Docker isn't installed or has not been started."
+    echo "Neither podman nor docker is available."
+    return 1
   fi
-}
-
-function k8s-shell {
-    kubectl run "$@-test-shell" --rm -i --tty --image ubuntu -- /bin/bash
-    kubectl delete pod "$@-test-shell"
-}
-
-# https://github.com/gokcehan/lf?tab=readme-ov-file#installation
-function lfcd {
-  cd "$(command lf -print-last-dir "$@")"
+  $container run -v $PWD:/root/workspace --workdir /root/workspace --rm -ti "$@"
 }
