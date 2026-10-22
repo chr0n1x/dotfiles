@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "1.3.0",
   "theme": "dark",
   "skills": [
     "~/.claude/skills"
@@ -16,5 +16,8 @@
   ],
   "tuiMode": "regular",
   "hideThinkingBlock": true,
-  "editorPaddingX": 1
+  "editorPaddingX": 1,
+  "extensions": [
+    "-builtin:mcp"
+  ]
 }

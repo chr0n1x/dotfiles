@@ -10,6 +10,10 @@ allowed-tools: Bash(git:*), Bash(tmux:*), Bash(mkdir:*), Bash(rm:*), Read, Write
 
 Isolate a task in its own git worktree so the main branch and the agent's main pane are untouched.
 
+If the user wants a subagent to work in the worktree with a visible tmux
+pane, use the `/task` command instead. It wraps this workflow with a
+subagent spawn and tmux pane mirroring.
+
 ## Workflow
 
 1. **Identify the task.** Get a short slug from the user or the argument (e.g. `add-dark-mode`, `fix-login-bug`). This slug is used for the branch name, worktree path, and tmux window name.
