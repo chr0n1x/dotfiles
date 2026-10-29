@@ -1,0 +1,47 @@
+# files local to this dir that I dont want symlinked
+# TODO: think of a nicer, simpler way of doing this
+\.travis.yml
+make
+scripts # this is windows powershell scripts and other utils that are installed via Makefile
+^/Dockerfile
+^/Makefile
+envrc.sample
+tests
+
+RCS
+.+,v
+
+CVS
+\.\#.+       # CVS conflict files / emacs lock files
+\.cvsignore
+
+\.svn
+_darcs
+\.hg
+
+\.git
+\.gitignore
+\.gitmodules
+
+\.DS_Store
+
+.+~          # emacs backup files
+\#.*\#       # emacs autosave files
+
+^/README.*
+^/LICENSE.*
+^/COPYING
+
+# real file lives at top level; harnesses should symlink to it
+^/AGENTS\.md$
+
+\.nvimlog
+
+# other random log things
+SYSTEM_PROMPT.md
+docs/
+STRUCTURE.md
+chroma.log
+mcp-server.log
+
+ruff.toml

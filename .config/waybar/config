@@ -1,0 +1,232 @@
+
+// -*- mode: jsonc -*-
+{
+  "reload_style_on_change": true,
+  "layer": "bottom",
+  "position": "top",
+  "height": 36,
+  "spacing": 16,
+  "modules-left": [
+    "custom/power",
+    "power-profiles-daemon",
+    "cpu",
+    "memory",
+    "temperature",
+    "battery",
+    "battery#bat2"
+  ],
+
+  "modules-center": [
+  //   "sway/window",
+  //   "custom/media",
+  //   "tray"
+    "clock"
+  ],
+
+  "modules-right": [
+    "bluetooth",
+    "network",
+    "pulseaudio",
+    "pulseaudio/slider"
+    // "keyboard-state"
+  ],
+
+  // Modules configuration
+  "sway/workspaces": {
+    "disable-scroll": true,
+    "all-outputs": true,
+    "warp-on-scroll": false,
+    "format": "{name}: {icon}",
+    "format-icons": {
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "urgent": "",
+      "focused": "",
+      "default": ""
+    }
+  },
+
+  "keyboard-state": {
+    "numlock": true,
+    "capslock": true,
+    "format": "{name} {icon}",
+    "format-icons": {
+      "locked": "",
+      "unlocked": ""
+    }
+  },
+
+  "sway/mode": {
+    "format": "<span style=\"italic\">{}</span>"
+  },
+
+  "sway/scratchpad": {
+    "format": "{icon} {count}",
+    "show-empty": false,
+    "format-icons": ["", ""],
+    "tooltip": true,
+    "tooltip-format": "{app}: {title}"
+  },
+
+  "mpd": {
+    "format": "{stateIcon} {consumeIcon}{randomIcon}{repeatIcon}{singleIcon}{artist} - {album} - {title} ({elapsedTime:%M:%S}/{totalTime:%M:%S}) ⸨{songPosition}|{queueLength}⸩ {volume}% ",
+    "format-disconnected": "Disconnected ",
+    "format-stopped": "{consumeIcon}{randomIcon}{repeatIcon}{singleIcon}Stopped ",
+    "unknown-tag": "N/A",
+    "interval": 5,
+    "consume-icons": {
+      "on": " "
+    },
+    "random-icons": {
+      "off": "<span color=\"#f53c3c\"></span> ",
+      "on": " "
+    },
+    "repeat-icons": {
+      "on": " "
+    },
+    "single-icons": {
+      "on": "1 "
+    },
+    "state-icons": {
+      "paused": "",
+      "playing": ""
+    },
+    "tooltip-format": "MPD (connected)",
+    "tooltip-format-disconnected": "MPD (disconnected)"
+  },
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+      "activated": "",
+      "deactivated": ""
+    }
+  },
+  "tray": {
+      // "icon-size": 21,
+      "spacing": 16
+  },
+  "clock": {
+      // "timezone": "America/New_York",
+      "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+      "format-alt": "{:%Y-%m-%d}"
+  },
+  "cpu": {
+    "format": "{usage}% ",
+    "tooltip": true
+  },
+  "memory": {
+    "format": "{}% ",
+    "tooltip": true
+  },
+  "temperature": {
+      // "thermal-zone": 2,
+      // "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
+      "critical-threshold": 60,
+      // "format-critical": "{temperatureC}°C {icon}",
+      "format": "{icon}{temperatureC}°C",
+      "format-icons": [""]
+  },
+  "backlight": {
+      // "device": "acpi_video1",
+      "format": "{percent}% {icon}",
+      "format-icons": ["", "", "", "", "", "", "", "", ""]
+  },
+  "battery": {
+    "states": {
+          // "good": 95,
+          "warning": 30,
+          "critical": 15
+    },
+    "format": "{capacity}% {icon}",
+    "format-full": "{capacity}% {icon}",
+    "format-charging": "{capacity}%  ",
+    "format-plugged": "{capacity}% ",
+    "format-alt": "{time} {icon}",
+      // "format-good": "", // An empty format will hide the module
+      // "format-full": "",
+      "format-icons": [" ", " ", " ", " ", " "]
+  },
+  "battery#bat2": {
+    "bat": "BAT2"
+  },
+  "power-profiles-daemon": {
+    "format": "{icon}",
+    "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
+    "tooltip": true,
+    "format-icons": {
+      "default": "",
+      "performance": "",
+      "balanced": "",
+      "power-saver": ""
+    }
+  },
+  "network": {
+      // "interface": "wlp2*", // (Optional) To force the use of this interface
+      //"format-wifi": "{essid} ({signalStrength}%) ",
+      "format-wifi": "",
+      "format-ethernet": "{ipaddr}/{cidr} ",
+      "tooltip-format": "{ifname} via {gwaddr} ",
+      "format-linked": "{ifname} (No IP) ",
+      "format-disconnected": "⚠",
+      "format-alt": "{ifname}: {ipaddr}/{cidr} ({signalStrength}%)"
+  },
+
+  "bluetooth": {
+    "format-on": "󰂯",
+    "format-off": "󰂲", // "BT-off",
+    "format-disabled": "󰂲",
+    "format-connected-battery": "󰂯",
+    "format-connected": "󰂯",
+    "format-alt": "{device_alias} ( {device_battery_percentage}%) 󰂯",
+    "tooltip-format": "{num_connections} connections 󰂯",
+    "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{num_connections} connected\n\n{device_enumerate}",
+    "tooltip-format-enumerate-connected": "{device_alias}\n{device_address}",
+    "tooltip-format-enumerate-connected-battery": "{device_alias}\n{device_address}\n{device_battery_percentage}%",
+    "on-click-right": "blueman-manager"
+  },
+
+  "pulseaudio": {
+      // "scroll-step": 1, // %, can be a float
+      "format": "{volume}% {icon} {format_source}",
+      "format-bluetooth": "{volume}% {icon} {format_source}",
+      "format-bluetooth-muted": "🔇 {icon} {format_source}",
+      "format-muted": "0% 🔇 {format_source}",
+      "format-source": "",
+      "format-source-muted": "0% ",
+      "format-icons": {
+        "headphone": " ",
+        "hands-free": "",
+        "headset": "",
+        "phone": "",
+        "portable": "",
+        "car": "",
+        "default": ["", "", ""]
+      },
+      "on-click": "pulseaudio"
+  },
+  "custom/media": {
+    "format": "{icon} {text}",
+    "return-type": "json",
+    "max-length": 40,
+    "format-icons": {
+      "spotify": "",
+      "default": "🎜"
+    },
+    "escape": true,
+    "exec": "/usr/share/waybar/custom_modules/mediaplayer.py 2> /dev/null" // Script in resources folder
+      // "exec": "$HOME/.config/waybar/mediaplayer.py --player spotify 2> /dev/null" // Filter player based on name
+  },
+  "custom/power": {
+    "format" : "⏻",
+    "tooltip": false,
+    "menu": "on-click",
+    "menu-file": "/usr/share/waybar/custom_modules/power_menu.xml",
+    "menu-actions": {
+      "Shutdown": "sudo systemctl poweroff",
+      "Reboot": "sudo systemctl reboot"
+    }
+  }
+}

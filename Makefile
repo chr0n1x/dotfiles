@@ -1,0 +1,162 @@
+# if on linux:
+#
+#   apt install -y git curl build-essential
+#   make
+#
+# if any commands fail, you might have to run an apt-get as sudo first
+# also assumes that your SSH keys are in place
+default: linux-compile-nvim linux install-zsh setup-git git-signing stow chsh
+
+
+# assume that stow is already installed (check the macos-install target below)
+stow:
+	@git submodule update --init || \
+	  (echo "Could not install submodules. If you do not have SSH set up, clone via 'make install-submodules'" && \
+	  exit 1)
+	stow -d $(shell pwd) -t ~/ .
+
+
+chsh:
+	chsh $(shell whoami) --shell $(shell which zsh)
+
+
+include make/*.mk
+
+# --- Lint ---------------------------------------------------------------
+# Lints only the repo's own code. Vendored trees (ponytail benchmarks,
+# plugin caches, the nvim config, submodules) are excluded: ruff via ruff.toml's
+# `exclude`, shellcheck via the path filters below. The nvim Lua has its own
+# lint (`make -C .config/nvim lint`) and is deliberately not run here.
+#
+# Requires: ruff, shellcheck (on PATH). shellcheck is installed by the
+# linux-compile-nvim target; ruff via `pipx install ruff` / `brew install ruff`.
+
+# All linters. Fails on any finding.
+lint: lint-python lint-shell
+
+# Python: the tmux agent picker + its tests. ruff reads ruff.toml at the repo
+# root (selects E/F/I + S112/BLE001/RUF, excludes the vendored trees).
+lint-python:
+	ruff check .config/tmux/scripts/agent_pick .config/tmux/tests/test_agent_pick.py
+
+# Auto-fix the mechanical ruff findings (import sort, unused imports, etc.).
+# Run before commit: `make lint-fix && make lint`.
+lint-fix:
+	ruff check --fix .config/tmux/scripts/agent_pick .config/tmux/tests/test_agent_pick.py
+
+# Shell: shellcheck only the picker's own dir (.config/tmux/scripts/). The
+# picker lives there; the zsh helpers under .config/zsh/ are out of scope
+# (shellcheck has no zsh dialect, and they're sourced into a zsh shell).
+SHELL_DIR := .config/tmux/scripts
+lint-shell:
+	shellcheck $(wildcard $(SHELL_DIR)/*.sh)
+
+# The picker's own tests: the Python unit tests (pytest) + the bash tests
+# (tree/kill guard + multi-agent column). Run these with the picker, not the
+# zsh docker tests below.
+test-picker:
+	python3 -m pytest .config/tmux/tests/*.py -q
+	bash .config/tmux/tests/test_tmux_agent_pick_tree.sh
+	bash .config/tmux/tests/test_tmux_agent_pick_agents.sh
+
+# Full local gate before pushing: lint (ruff + shellcheck) + picker tests.
+test: docker-test test-picker
+
+clean:
+	rm -rf nvim/plugin ~/.local/share/nvim ~/.config/nvim ~/.cache/nvim ~/.config/nvim ~/.config/zsh ~/.zshrc
+
+macos-install:
+	which brew /dev/null || /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+	brew install ag direnv git gh nvim z zsh ripgrep fzf secretive bat tree fd stow zoxide tmux knqyf263/pet/pet
+	pip3 install virtualenv
+
+# Union of Dockerfile + linux target's packages (minus make) — for CI/container builds
+linux-packages:
+	apt-get update && apt-get install -y --no-install-recommends \
+	    build-essential ca-certificates curl direnv git zsh ripgrep fzf bat tree stow zoxide tmux cmake xsel cryptsetup cifs-utils glow gum
+
+
+# Install Go from upstream tarball
+go-install:
+	ARCH=$$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/'); \
+	curl -fsSL "https://go.dev/dl/go$$(go version | cut -d' ' -f3 | sed 's/^go//').linux-$${ARCH}.tar.gz" -o /tmp/go.tar.gz && \
+	sudo rm -rf /usr/local/go && \
+	sudo tar -C /usr/local -xzf /tmp/go.tar.gz && \
+	rm /tmp/go.tar.gz
+
+# TODO: clean this up, adding here for reference later
+linux: linux-packages go-install
+	# pretty cli things
+	sudo mkdir -p /etc/apt/keyrings
+	curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+	echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+	sudo apt update && sudo apt install glow gum
+	curl https://sh.rustup.rs -sSf | sh
+	$(shell $$HOME/.cargo/bin/cargo install git-delta)
+	$(shell $$HOME/.cargo/bin/cargo install --git https://github.com/rtk-ai/rtk)
+
+	# cluster wrangling
+	curl -sL https://talos.dev/install | sh
+	# pick your poison
+	# sudo snap install kubectl --classic
+	curl -LO "https://dl.k8s.io/release/$(shell curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+	curl -LO "https://dl.k8s.io/release/$(shell curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl.sha256"
+	echo "$$(cat kubectl.sha256)  kubectl" | sha256sum --check
+	sudo install -o kran -g kran -m 0755 kubectl /usr/local/bin/kubectl
+	kubectl version --client
+	# optional things with krew and whatnot - do it yourself
+	# https://krew.sigs.k8s.io/docs/user-guide/setup/install/
+	# kubectl krew install ctx ns cnpg cert-manager
+
+	# AI things
+	curl -fsSL https://claude.ai/install.sh | bash
+	curl -fsSL https://maki.sh/install.sh | sh
+	# for local remember to install plugin
+	curl -fsSL https://pi.dev/install.sh | sh
+	# !pi install git:github.com/huggingface/pi-llama
+	# export LLAMA_BASE_URL="$OLLAMA_HOST/v1"
+
+	# curl -fsSL https://ollama.com/install.sh | sh
+	# sudo systemctl disable ollama # only use CLI
+
+# doesnt actually work - made to copy-paste
+install-krew:
+	(
+		set -x; cd "$(mktemp -d)" &&
+		OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+		ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
+		KREW="krew-${OS}_${ARCH}" &&
+		curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
+		tar zxvf "${KREW}.tar.gz" &&
+		./"${KREW}" install krew
+	)
+	kubectl krew install ctx ns cnpg cert-manager
+
+# run this w/ sudo
+linux-compile-nvim:
+	rm -rf ~/.local/opt/neovim || :
+	git clone https://github.com/neovim/neovim.git ~/.local/opt/neovim
+	sudo apt-get install ninja-build gettext cmake curl build-essential git shellcheck
+	cd ~/.local/opt/neovim && make CMAKE_BUILD_TYPE=RelWithDebInfo && sudo make install
+
+submodules-over-https:
+	git clone https://github.com/tmux-plugins/tpm.git .tmux/plugins/tpm
+	git clone https://github.com/chr0n1x/neovim-configs .config/nvim
+
+
+# TODO: install golang
+# install-golang-tools: install-surf-cli
+install-golang-tools:
+	go install github.com/mikefarah/yq/v4@latest
+	go install github.com/JohannesKaufmann/html-to-markdown/v2/cli/html2markdown@latest
+	go install github.com/phlx0/drift@latest
+	go install github.com/charmbracelet/crush@latest
+
+
+install-surf-cli:
+	cd scripts/surf-cli && go mod tidy && go build -o $(HOME)/go/bin/surf-cli .
+
+
+# some LSP things require nodejs :(
+install-nvm-lts:
+	curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash

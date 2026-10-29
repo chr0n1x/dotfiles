@@ -1,0 +1,41 @@
+---
+name: searxng
+description: Search using a self-hosted SearXNG instance and deep-dive into top results
+user-invocable: true
+argument-hint: search query
+allowed-tools: Bash(curl*), Bash(printenv*)
+---
+
+# SearXNG Deep Search
+
+## Step 1: Validate Environment
+First, run `printenv SEARXNG_URL` to resolve the search engine URL. If the result is empty or fails, notify the user that the environment variable is not set and stop.
+
+## Step 2: Execute Initial Search
+The instance behind `SEARXNG_URL` is **Degoog**, not SearXNG. It does not honor the `format=json` parameter on the root path (returns the SPA HTML shell). Instead, hit the `/api/search` endpoint which does honor it:
+
+```bash
+curl -L -G "<URL>/api/search" --data-urlencode "q=<QUERY>" --data-urlencode "format=json"
+```
+
+The response is SearXNG-shaped: `{results: [...], answers, suggestions, ...}`. Use `jq '.results[:5] | map({title, url, content})'` to parse.
+
+## Step 3: Mandatory Workflow Trigger (CRITICAL)
+- **STOP all conversational output immediately.**
+- **DO NOT** provide a summary or "thinking" response to the user.
+- **YOU MUST** call the `Workflow` tool immediately to execute the research pipeline (Steps 4 and 5).
+    - Failure to call `Workflow` is a violation of this command's protocol.
+
+## Step 4: Spawn Research Subagents (Workflow Mode)
+Parse the JSON results and identify the top 3-5 most relevant URLs. For each of these URLs, spawn a subagent to perform a deep dive.
+
+**Subagent Instructions:**
+1. Fetch the content of the provided URL directly with `curl -sL "<URL>"`. The Degoog instance has no webfetch engine, so do not route fetches through it.
+2. Summarize the key findings specifically related to the original search query.
+3. Extract any critical data points and citations.
+4. Return a concise summary of the page.
+
+**Note:** Do NOT use the web search tool. Use `curl` only. If a site blocks direct fetching (e.g. Reddit), note the limitation and provide context from general knowledge.
+
+## Step 5: Synthesize Findings
+Collect the summaries from all subagents. Combine them with the initial search snippets to provide a comprehensive, synthesized answer to the user's original query. Cite the sources used in the final response, including the full URLs as clickable markdown links.

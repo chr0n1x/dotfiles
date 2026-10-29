@@ -1,0 +1,7 @@
+.git
+.gitmodules
+.claude
+.nvimlog
+*.swp
+.DS_Store
+scripts/surf-cli/

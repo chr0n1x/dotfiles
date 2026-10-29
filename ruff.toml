@@ -1,0 +1,57 @@
+# Ruff config for the dotfiles repo's own Python. The repo is mostly Neovim
+# Lua + shell; Python lives in the tmux agent picker (and its tests). Lint that
+# via `make lint`, which reads this file. Vendored plugin trees (ponytail
+# benchmarks, .test-cache, submodules) are excluded below.
+
+# Target a recent 3.x: the picker runs under `python3` on macOS (3.9+) and
+# Linux. Newer syntax is fine.
+target-version = "py39"
+# The code uses long one-liners deliberately (JSON paths, SQL, the tmux format
+# string). 120 keeps E501 from churning working lines; it's a soft cap, not a
+# wall.
+line-length = 120
+
+# Only our own Python is in scope. Everything else - vendored plugin trees,
+# the ponytail benchmark harness, plugin caches, submodules, the nvim config -
+# is excluded. (ruff's `exclude` is a top-level list of globs.)
+exclude = [
+    ".config/nvim",
+    ".config/tmux/plugins",
+    ".claude/plugins",
+    ".tmux/plugins",
+    ".test-cache",
+    "node_modules",
+    ".git",
+]
+
+[lint]
+# A focused set: correctness (E/F) plus the style rules that catch real dead
+# code (RUF) and import hygiene (I). Kept small so the signal stays useful.
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes: unused imports/vars, undefined names
+    "I",     # isort: import ordering
+    "S112",  # try-except-continue "consider logging" - enabled so the inline
+             # noqa-with-reason at the intentional sites is *used*, not dead
+    "BLE001",# blind `except Exception` - same: enabled so the documented
+             # intentional sites carry a local reason
+    "RUF059",# unused unpacked variables
+    "RUF100",# unused noqa directives (keeps suppressions honest)
+]
+# Deliberately NOT enabled, and why:
+#   S (broadly) / BLE (broadly): we select ONLY S112 + BLE001, the two rules
+#       that fire on the picker's "resolve with a safe fallback" idiom. The
+#       rest of the B/S families (e.g. BLE001's siblings, S110 pass-continue)
+#       are not relevant here. If a NEW blind-except or except-continue shows
+#       up without a `# noqa: BLE001/S112 - <reason>`, ruff will now flag it -
+#       which is the point: the reason must be written down, not assumed.
+#   SIM115 (context managers): already converted the read loops to `with`; no
+#       bare open() left, so nothing to ignore.
+#   PLR (pylint refactoring): mostly taste; we fix the few that are real.
+ignore = []
+
+[lint.per-file-ignores]
+# Tests may use %-formatting in fixtures and blind-adjacent helpers freely.
+".config/tmux/tests/*.py" = ["F541"]
+
+

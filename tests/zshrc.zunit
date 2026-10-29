@@ -1,0 +1,180 @@
+#!/usr/bin/env zunit
+
+@test 'ZSH_THEME is set to gallifrey' {
+  run zsh -c 'source ~/.zshrc 2>/dev/null; echo $ZSH_THEME'
+  assert "$output" same_as "gallifrey"
+}
+
+@test 'DISABLE_AUTO_UPDATE is set for compinit caching' {
+  run grep -q '^DISABLE_AUTO_UPDATE=true' ~/.zshrc
+  assert $? equals 0
+}
+
+@test 'fast-syntax-highlighting is in plugins list' {
+  run grep -q '^\s*fast-syntax-highlighting' ~/.zshrc
+  assert $? equals 0
+}
+
+@test 'zsh-syntax-highlighting is NOT in the active plugins list' {
+  run sed -n '/^plugins=/,/^)/p' ~/.zshrc | grep -v '^ *#' | grep 'zsh-syntax-highlighting' || true
+  assert "$output" is_empty
+}
+
+@test 'PATH contains expected local and snap directories' {
+  run zsh -c 'source ~/.zshrc 2>/dev/null; echo $PATH'
+  assert "$HOME/.local/bin" is_substring_of "$output"
+  assert "/snap/bin" is_substring_of "$output"
+}
+
+@test 'scripts loaded via glob, not $(ls ...)' {
+  run grep '$(ls.*zsh/scripts' ~/.zshrc || true
+  assert "$output" is_empty
+}
+
+@test 'no duplicate compinit call in .zshrc' {
+  run grep -c 'compinit' ~/.zshrc || true
+  assert "$output" same_as "0"
+}
+
+@test 'podman fallback alias is defined' {
+  run grep -q 'alias docker=podman' ~/.zshrc
+  assert $? equals 0
+}
+
+@test 'vi-mode is in plugins list' {
+  run sed -n '/^plugins=/,/^)/p' ~/.zshrc | grep -v '^ *#' | grep 'vi-mode' || true
+  assert "$output" is_empty --not
+}
+
+@test 'history options are set' {
+  run grep -q '^setopt noincappendhistory' ~/.zshrc && grep -q '^setopt nosharehistory' ~/.zshrc
+  assert $? equals 0
+}
+
+@test 'VI_MODE_SET_CURSOR is true' {
+  run grep -q '^export VI_MODE_SET_CURSOR=true' ~/.zshrc
+  assert $? equals 0
+}
+
+@test 'GOPATH is appended to PATH when Go is available' {
+  run zsh -c 'source ~/.zshrc 2>/dev/null; echo $PATH'
+  assert "$(go env GOPATH)/bin" is_substring_of "$output"
+}
+
+# --- gpoh fork guard ------------------------------------------------------
+#
+# gpoh checks the origin push URL against a list of allowed fork owners
+# ($USER, $GH_USERNAME, $GH_ORGS). The tests use a local file:// remote so
+# the push succeeds without ssh. The guard only inspects the URL string, so
+# the scheme does not matter.
+
+@test 'gpoh blocks push to a remote that matches no allowed owner' {
+  local dir
+  dir=$(mktemp -d)
+  cd "$dir"
+  git init -q
+  git config user.email test@test
+  git config user.name test
+  git commit -q --allow-empty -m x
+  git remote add origin "file:///tmp/gpoh-remote-$$.git"
+  git remote set-url --push origin "file:///nonexistent-stranger.git"
+
+  local out
+  out=$(USER=kran zsh -c 'source /app/.config/zsh/scripts/git.sh; gpoh' 2>&1)
+  assert "$out" contains "does NOT look like your fork"
+  cd / && rm -rf "$dir"
+}
+
+@test 'gpoh allows push when remote matches $USER' {
+  local dir remote
+  dir=$(mktemp -d)
+  remote="$dir/remote.git"
+  git init -q --bare "$remote"
+  cd "$dir"
+  git init -q work
+  cd work
+  git config user.email test@test
+  git config user.name test
+  git commit -q --allow-empty -m x
+  git remote add origin "$remote"
+  git remote set-url --push origin "file://$remote"
+
+  local out
+  out=$(USER=kran zsh -c "source /app/.config/zsh/scripts/git.sh; gpoh" 2>&1)
+  assert "$out" does_not_contain "does NOT look like your fork"
+  cd / && rm -rf "$dir"
+}
+
+@test 'gpoh allows push when remote matches $GH_USERNAME' {
+  local dir remote
+  dir=$(mktemp -d)
+  remote="$dir/otherguy-remote.git"
+  git init -q --bare "$remote"
+  cd "$dir"
+  git init -q work
+  cd work
+  git config user.email test@test
+  git config user.name test
+  git commit -q --allow-empty -m x
+  git remote add origin "$remote"
+  git remote set-url --push origin "file://$remote"
+
+  local out
+  out=$(USER=kran GH_USERNAME=otherguy zsh -c "source /app/.config/zsh/scripts/git.sh; gpoh" 2>&1)
+  assert "$out" does_not_contain "does NOT look like your fork"
+  cd / && rm -rf "$dir"
+}
+
+@test 'gpoh blocks push when $GH_USERNAME does not match the remote' {
+  local dir
+  dir=$(mktemp -d)
+  cd "$dir"
+  git init -q
+  git config user.email test@test
+  git config user.name test
+  git commit -q --allow-empty -m x
+  git remote add origin "file:///nonexistent.git"
+  git remote set-url --push origin "file:///nonexistent.git"
+
+  local out
+  out=$(USER=kran GH_USERNAME=otherguy zsh -c 'source /app/.config/zsh/scripts/git.sh; gpoh' 2>&1)
+  assert "$out" contains "does NOT look like your fork"
+  cd / && rm -rf "$dir"
+}
+
+@test 'gpoh allows push when remote matches one of $GH_ORGS' {
+  local dir remote
+  dir=$(mktemp -d)
+  remote="$dir/acme-org-remote.git"
+  git init -q --bare "$remote"
+  cd "$dir"
+  git init -q work
+  cd work
+  git config user.email test@test
+  git config user.name test
+  git commit -q --allow-empty -m x
+  git remote add origin "$remote"
+  git remote set-url --push origin "file://$remote"
+
+  local out
+  out=$(USER=kran GH_ORGS=acme-org,mycorp zsh -c "source /app/.config/zsh/scripts/git.sh; gpoh" 2>&1)
+  assert "$out" does_not_contain "does NOT look like your fork"
+  cd / && rm -rf "$dir"
+}
+
+@test 'gpoh blocks push when $GH_ORGS contains no match for the remote' {
+  local dir
+  dir=$(mktemp -d)
+  cd "$dir"
+  git init -q
+  git config user.email test@test
+  git config user.name test
+  git commit -q --allow-empty -m x
+  git remote add origin "file:///nonexistent.git"
+  git remote set-url --push origin "file:///nonexistent.git"
+
+  local out
+  out=$(USER=kran GH_ORGS=acme-org,mycorp zsh -c 'source /app/.config/zsh/scripts/git.sh; gpoh' 2>&1)
+  assert "$out" contains "does NOT look like your fork"
+  cd / && rm -rf "$dir"
+}

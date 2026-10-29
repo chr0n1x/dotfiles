@@ -1,0 +1,1 @@
+../../commands/obsidian-read.md

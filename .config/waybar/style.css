@@ -1,0 +1,62 @@
+@define-color fg #D4DAE5;
+@define-color bg #282C34;
+@define-color bg-alt #30333A;
+
+@keyframes fadeIn {
+    0% {}
+    100% {}
+}
+
+* {
+    all: unset;
+    font-family: "0xProto Nerd Font Mono";
+    font-size: 14px;
+    outline: 1px;
+    border: 1px;
+    text-shadow: none;
+}
+
+window.#waybar {
+  background: transparent;
+}
+
+*:hover {
+    background: @fg;
+    color: @bg;
+    outline: 0px;
+    outline-color: #d65d0e;
+    border-radius: 4px;
+    transition: background 0.8s ease, color 0.8s ease;
+}
+
+/* solo icons */
+#bluetooth,
+#custom-power,
+#network {
+  padding: 4px 8px 4px 8px;
+}
+
+tooltip,
+menu {
+  border-radius: 4px;
+  background: rgba(43, 48, 59, 0.8);
+  border: 1px solid rgba(100, 114, 125, 0.9);
+}
+tooltip label {
+  color: white;
+}
+
+/* TODO: figure out how to scope this to specific comps */
+menu {
+  margin-top: 128px;
+  padding: 8px;
+}
+
+.modules-center,
+.modules-left,
+.modules-right {
+    margin: 4px;
+    padding: 6px;
+    border-radius: 7px;
+    background-color: alpha(@bg, .6);
+}

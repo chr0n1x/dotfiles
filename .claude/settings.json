@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "effortLevel": "xhigh",
+  "skipWorkflowUsageWarning": true,
+  "theme": "dark",
+  "editorMode": "vim",
+  "autoCompactEnabled": true,
+  "autoContinueAtUsageLimit": false
+}

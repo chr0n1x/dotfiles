@@ -1,0 +1,72 @@
+# export NVIM_LAZY_N_LITE=true
+
+# MISC AI BS
+#
+# export OPEN_WEBUI_JWT=""
+# export OPEN_WEBUI_URL="https://myopenwebui"
+# export OPEN_WEBUI_MODEL="hf.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q4_K_XL"
+# export OPEN_WEBUI_MODEL="hf.co/unsloth/Seed-Coder-8B-Instruct-GGUF:Q6_K_XL"
+#
+# export OLLAMA_HOST="http://127.0.0.1:11434"
+export OLLAMA_NVIM_DISABLED="true"
+export OLLAMA_HOST="https://myollama"
+# export OLLAMA_MODEL="qwen2.5-coder:7b"
+# export OLLAMA_MODEL="codellama:7b"
+# export OLLAMA_MODEL="hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL"
+# export OLLAMA_MODEL="qwen2.5-coder:7b-base-q6_K"
+export OLLAMA_MODEL="hf.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q4_K_XL"
+# export OLLAMA_KEEP_ALIVE=16m
+#
+# opencode
+#
+export LOCAL_ENDPOINT="$OLLAMA_HOST/v1"
+export OLLAMA_API_BASE=$OLLAMA_HOST
+
+# git[hub] things
+export GITHUB_PERSONAL_ACCESS_TOKEN=lololol
+export DELTA_FEATURES=+side-by-side
+
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:/usr/local/go/bin:$HOME/go/bin:$PATH"
+export KUBE_EDITOR=/usr/local/bin/nvim
+export EDITOR=/usr/local/bin/nvim
+
+# NOTE: used by ~/.zshrc
+export AUTO_TMUX=true
+if [[ "$TMUX_INIT" = "true" ]]; then
+    cat << "EOF"
+
+               ,'``.._   ,'``.                         
+              :,--._:)\\,:,._,.:       All Glory to    
+              :`--,''   :`...';\\      the HYPNO TOAD! 
+               `,'       `---'  `.                     
+               /                 :                     
+              /                   \\                   
+            ,'                     :\\.___,-.          
+           `...,---'``````-..._    |:       \\         
+             (                 )   ;:    )   \\  _,-.  
+              `.              (   //          `'    \\ 
+               :               `.//  )      )     , ;  
+             ,-|`.            _,'/       )    ) ,' ,'  
+            (  :`.`-..____..=:.-':     .     _,' ,'    
+             `,'\\ ``--....-)='    `._,  \\  ,') _ '``._
+          _.-/ _ `.       (_)      /     )' ; / \\ \\`-.
+         `--(   `-:`.     `' ___..'  _,-'   |/   `.)   
+             `-. `.`.``-----``--,  .'                  
+               |/`.\\`'        ,','); 
+                   `         (/  (/                    
+
+EOF
+
+  if [[ -f ~/Documents/todo.md ]]; then
+    # maaaagical https://github.com/charmbracelet/glow
+    if which glow &> /dev/null; then
+      glow ~/Documents/todo.md
+    fi
+  fi
+fi
+
+
+function push-cluster-cfgs() {
+  sudo cp ~/.kube/config /LUKS/.kube/config
+  sudo rsync --delete -avh ~/Code/talos/configs/* /LUKS/.talos/.
+}

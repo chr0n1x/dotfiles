@@ -1,0 +1,16 @@
+#autoload
+
+# docker compose and podman compose share the same subcommand syntax
+alias dc="docker compose"
+alias vim="nvim"
+alias t="talosctl"
+alias k="kubectl"
+
+if uname | grep Linux &> /dev/null; then
+  batbin="batcat"
+else
+  batbin="bat"
+fi
+if which $batbin &> /dev/null; then
+  alias cat="$batbin -pP"
+fi

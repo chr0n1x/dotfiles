@@ -1,0 +1,25 @@
+# nvim
+.nvimlog
+nvim/plugin/
+*.swp
+tmux-*-*.log
+chroma.log
+
+# python test/run artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# .config: machine-specific or externally-managed
+.config/tmux/plugins/
+# may differ by machine
+.config/maki/providers.toml
+.config/maki/permissions.toml
+.config/maki/plugin.toml
+
+.pi/agent/
+!.pi/agent/settings.json
+.pig/agent/
+!.pig/agent/settings.json
