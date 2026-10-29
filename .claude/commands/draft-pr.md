@@ -59,17 +59,32 @@ Check every rule against the body before showing it.
 4. No attribution line; no mention of the AI model or tool.
 5. Link PRs as #NN. Ticket keys only in the body, never in code or docs.
 6. The summary is about 150 characters and says only what the PR changes.
+   After the summary sentence, add a short **Key terms** list (about 3-5)
+   of the words the Changes lean on that a newcomer could misread, such as
+   "field", "handler" or "context". Define each in one line with example
+   code, not prose. A definition says what the term is, shows it in
+   existing code (link on the default branch), and where the stack's
+   goal depends on it, says why it matters (what goes wrong today without
+   it). A term that only restates its name has failed. The 250-character limit below covers the summary
+   sentence and the relevance statement, not this list.
    If the PR adds a component meant to be used by current code or by a
    later PR in the stack, add a RELEVANCE statement: a new line (own
    paragraph) right after the summary. It shows how existing code would
    use the component, with a permalink to the existing code that would
-   change, on the default branch (commit SHA of its current head) if the
-   code is there, else on the branch of the PR that adds it, and the
-   one-line call, and says how
-   that code functions in the codebase now (what runs through it, and
-   which components). Check that claim against the code before writing
+   change, on the default branch (`blob/<default>/...`, not a commit SHA)
+   if the code is there, else on the branch of the PR that adds it, and the
+   one-line call, and states when the change lands: "(next PR, in #NN)" if it is the
+   immediately following PR in the stack, "(previous PR, in #NN)" if the
+   immediately preceding one, "(later, in #NN)" for any other later PR, "(in this PR)" if this PR does it, and says how
+   that code functions now (what runs through it, which components) inside
+   the same sentence, as a short parenthetical on the code, not a
+   separate sentence. Make it dense: every word carries meaning. Check that claim against the code before writing
    it. Only if summary plus relevance stay under 250 visible characters
    (link text counts, the URL does not); otherwise skip it.
+   Baseline behavior (what happens today, and stays true for untouched
+   paths) always goes in the Summary, right after the relevance statement,
+   with a multi-line example. Never in Changes or Examples. Like Key
+   terms, it is outside the 250-character limit.
 7. Changes has one short bullet per change a reviewer cannot see from the
    diff, naming the function, flag, env var or file in backticks. Say why
    only where it is not obvious.
@@ -81,6 +96,11 @@ Check every rule against the body before showing it.
    can find it with a text search. With only a few examples, "example(s)
    below" is enough. Name each example with a bold label. A bullet that needs the diff open to
    understand has failed.
+   Each bullet carries a relevance justifier: a few words or an
+   example showing why the change matters to existing code, so the reader
+   needs no editor to see it.
+   Keep the bullet itself short: state what the thing is or does and let
+   the example carry the detail (precedence, overwriting, ordering).
 8. Changes skips renames, moves, file lists, comment updates and other
    follow-on edits. Group a move or refactor into one bullet.
 9. Docs updated to match the code are one bullet: "Updated `<file>` to
