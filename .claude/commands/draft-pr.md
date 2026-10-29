@@ -58,33 +58,33 @@ Check every rule against the body before showing it.
    fewest words.
 4. No attribution line; no mention of the AI model or tool.
 5. Link PRs as #NN. Ticket keys only in the body, never in code or docs.
-6. The summary is about 150 characters and says only what the PR changes.
-   After the summary sentence, add a short **Key terms** list (about 3-5)
-   of the words the Changes lean on that a newcomer could misread, such as
-   "field", "handler" or "context". Define each in one line with example
-   code, not prose. A definition says what the term is, shows it in
-   existing code (link on the default branch), and where the stack's
-   goal depends on it, says why it matters (what goes wrong today without
-   it). A term that only restates its name has failed. The 250-character limit below covers the summary
-   sentence and the relevance statement, not this list.
-   If the PR adds a component meant to be used by current code or by a
-   later PR in the stack, add a RELEVANCE statement: a new line (own
-   paragraph) right after the summary. It shows how existing code would
-   use the component, with a permalink to the existing code that would
-   change, on the default branch (`blob/<default>/...`, not a commit SHA)
-   if the code is there, else on the branch of the PR that adds it, and the
-   one-line call, and states when the change lands: "(next PR, in #NN)" if it is the
-   immediately following PR in the stack, "(previous PR, in #NN)" if the
-   immediately preceding one, "(later, in #NN)" for any other later PR, "(in this PR)" if this PR does it, and says how
-   that code functions now (what runs through it, which components) inside
-   the same sentence, as a short parenthetical on the code, not a
-   separate sentence. Make it dense: every word carries meaning. Check that claim against the code before writing
-   it. Only if summary plus relevance stay under 250 visible characters
-   (link text counts, the URL does not); otherwise skip it.
-   Baseline behavior (what happens today, and stays true for untouched
-   paths) always goes in the Summary, right after the relevance statement,
-   with a multi-line example. Never in Changes or Examples. Like Key
-   terms, it is outside the 250-character limit.
+6. The Summary section is built in this order, and nothing else:
+   a. **Summary sentence.** Up to about 150 characters. Says only what
+      the PR changes.
+   b. **Key terms.** A list of 3-5 words the Changes lean on that a
+      newcomer could misread ("field", "handler", "context"). One line
+      each, defined with example code, not prose: what it is, shown in
+      existing code (link on the default branch), and, where the stack's
+      goal depends on it, why it matters (what goes wrong today without
+      it). A term that only restates its name has failed. No length cap.
+   c. **Relevance statement.** Only if the PR adds a component meant to
+      be used by current code or a later PR in the stack. One sentence,
+      as its own paragraph, that shows how existing code would use the
+      component. It has: a link to the existing code that would change
+      (`blob/<default>/...`, not a commit SHA; on the PR's branch if the
+      code is not on the default branch yet), the one-line call, a short
+      parenthetical on how that code works now (what runs through it,
+      which components), and when the change lands: "(next PR, in #NN)",
+      "(previous PR, in #NN)", "(later, in #NN)" or "(in this PR)". Check
+      the claim against the code first. Aim for about 100 characters; go
+      past that when the link, call and timing need it. If it is too
+      long, shorten the summary sentence first, then trim words. Skip the
+      statement only if it still says nothing a reader could not get from
+      the summary.
+   d. **Current behavior, before these changes.** What happens today, with
+      a multi-line example. Never in Changes or Examples. No length cap.
+   Count characters on rendered text: link text counts, the URL, the
+   backticks and the bold markers do not.
 7. Changes has one short bullet per change a reviewer cannot see from the
    diff, naming the function, flag, env var or file in backticks. Say why
    only where it is not obvious.
