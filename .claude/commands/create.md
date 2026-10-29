@@ -24,6 +24,8 @@ Two checkpoints. Each step is mechanical: do it, then continue.
 4. **Say why.** Each new function, flag or file gets one line on why it
    exists. Comment anything non-obvious (e.g. it builds a response object
    as well as writing a record).
+   If it is added ahead of its use, the line says who will call it and
+   when (see "Write for a reader with no editor" below).
 5. **Scope.** Name the PR or branch the change belongs to. Anything
    outside it goes in a parked list (a scratchpad file). If it belongs to
    another branch in a stack, name that branch and use `gh-stack`. Do
@@ -50,7 +52,24 @@ Two checkpoints. Each step is mechanical: do it, then continue.
    Keep all lines under 80 chars, including newlines, unless a linter
    rule or auto-formatter says otherwise. Reply: 3 sentences. PR
    description: use `draft-pr`.
-6. **Leftovers.** List files created this session; the user decides keep
+6. **Write for a reader with no editor.** Comments, docs and PR text
+   are read without an LSP and with a small context window.
+   - No unexplained terms ("the record's own", "later field"). A line
+     that needs the diff open to follow has failed.
+   - Define a key term with one line of example code, a link to
+     existing code, and why it matters. Restating its name fails.
+   - A rule, precedence, ordering or edge case gets a short snippet
+     with its real output (run it). Prose says only what the thing is.
+   - Point at an example by bold name so a text search finds it: `see
+     **"Name"** example below`. Never "example 3" or "line 40".
+   - Code added ahead of its use: say how existing code will use it,
+     link that call site, and say when ("next PR, in #NN", "later, in
+     #NN", "in this PR").
+   - State today's baseline behavior, with an example, before the
+     change.
+   - Keep it dense: fold a qualifier into its sentence as a
+     parenthetical, not a second sentence.
+7. **Leftovers.** List files created this session; the user decides keep
    or delete. Then offer `commit-push`. Never commit or push from
    /create.
 
