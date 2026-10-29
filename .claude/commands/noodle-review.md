@@ -41,6 +41,31 @@ the evidence); then answer fully in their terms and return to the open question.
 - Never ask for something you can read from the config, the snapshot or the last
   answer.
 
+### Findings table
+
+When the user picks Inspect on a review, or asks to see its findings, show them
+as one table, never as prose or a bullet list. One row per finding, in the
+review's order:
+
+| # | Finding | Sev | Holds now? | Pick |
+|---|---|---|---|---|
+| 1 | Inline group keys skip the duplicate check (`handler.go:42`) | high | yes, test shows 2 keys | fix |
+| 2 | Docs claim X; code does Y | low | no, fixed in a later commit | skip |
+
+- **Finding:** one plain sentence, with `file:line` where it applies.
+- **Sev:** the review's severity, or yours when it gives none.
+- **Holds now?:** check each finding against the current code of the branch
+  (the PR head, which may be newer than what the cook reviewed) before writing
+  the row: read the source, run a test, or say "unverified". Say how you checked
+  in a few words.
+- **Pick:** your recommendation: `fix`, `doc` (a doc or comment only), `skip`
+  (true but not worth it now) or `reject` (wrong); give the reason in a few
+  words.
+
+Under the table, one line naming which rows you recommend fixing. The user picks
+the rows; fix only those, test first, then rebase the stack above and update the
+PR body as for any other change.
+
 ## How an order ends here (the publish model)
 
 Background: guide sections 3 "The flow today" and 3.1 "Gated and ungated orders".
