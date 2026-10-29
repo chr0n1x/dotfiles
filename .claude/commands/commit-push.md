@@ -56,7 +56,7 @@ If `$ARGUMENTS` has a commit message, use it. Otherwise go to Step 4.
 
 **Attribution (always in body):**
 - Add `AI Model: <model-name>` as a standalone line, using the model actually running this session (from agent/session metadata or the system-provided model name, not environment variables). Keep the provider prefix if present. For local GGUF names, lowercase and drop `unsloth/`, `MTP`, `GGUF`, `UD-`. Examples: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q6_K` -> `qwen3.6-35b:Q6_K`; `claude-opus-4-8` -> `opus-4.8`.
-- Last line, after a blank line: `Co-Authored-By: RannetAI <noreply@rannet.duckdns.org>`
+- Do not add a `Co-Authored-By` trailer.
 
 **Split unrelated changes into separate commits.**
 
@@ -90,8 +90,6 @@ cat > "$MSG_FILE" <<EOF
 <body only if non-obvious, otherwise omit this line>
 
 AI Model: <actual-session-model>
-
-Co-Authored-By: RannetAI <noreply@rannet.duckdns.org>
 EOF
 git commit -F "$MSG_FILE"
 rm -f "$MSG_FILE"
@@ -99,7 +97,7 @@ rm -f "$MSG_FILE"
 
 `<<EOF` is safe here because `cat` only writes the body to a file. If the body must contain a literal `$`, `` ` ``, or `\`, use `<<'EOF'` and fill in the model name afterward.
 
-If the user gave an override message, use it verbatim without adding Co-Authored-By.
+If the user gave an override message, use it verbatim without adding or changing any metadata.
 
 ## Step 6: Stack-aware commit and push
 
@@ -108,8 +106,7 @@ Before committing or pushing, determine whether the branch is in a tracked or re
 - Commit only the intended changes, on the branch that owns them. Do not switch stack branches with uncommitted changes unless they are verifiably preserved.
 - A commit on a parent branch can require rebasing descendants. After committing, check `gh stack view --json` for `needsRebase`. Do not push descendants or adjust PR bases ad hoc.
 - Take the canonical remote from the stack's branches/PRs and `gh stack view --json`, not from `origin` by default. `origin` may be a fork while another remote owns the stack PRs.
-- Get explicit confirmation for each stack mutation (push, submit), naming the exact remote. Sync with `gh stack submit --auto --remote REMOTE`, then verify remote branch SHAs, PR heads/bases, and stack state.
-- Confirm each stack mutation (push, submit), naming the exact remote. Sync with `gh stack submit --auto --remote REMOTE`, then verify remote branch SHAs, PR heads/bases, and stack state.
+- Follow `gh-stack` for stack mutations. Sync with `gh stack submit --auto --remote REMOTE` only when authorized, then verify remote branch SHAs, PR heads/bases, and stack state.
 
 For non-stack branches, use the push flow below.
 
@@ -125,7 +122,7 @@ In order:
 3. Wait for an explicit yes. Silence, a tangent, or an "ok" to a different question means do NOT push. If ambiguous, ask again.
 4. Only then push:
 
-- Stack branch: follow Step 6 and push to the canonical stack remote, not the configured `origin` upstream. `git push` alone does not update stacked PR bases.
+- Stack branch: follow Step 6 and push to the canonical stack remote, not the configured `origin` upstream. `git push` alone does not update stacked PR bases. This confirmation satisfies `gh-stack`'s gate for that push; do not ask twice.
 - Non-stack branch: `git push`, or if no upstream is set, `git push -u origin $(git branch --show-current)`.
 
 ## Step 8: Report
@@ -135,11 +132,6 @@ In order:
 - The remote URL of the commit, if applicable
 
 On failure (hook failure, push rejected, etc.), report the error and suggest a fix. Do NOT retry with `--force` or `--no-verify` unless explicitly asked.
-
-## PR description style (when a PR is requested)
-
-Preserve the repo's PR template and conventions. Match neighboring PRs' terse tone: a one- or two-sentence summary and short change bullets, with no marketing language or filler. State what changed and what is out of scope, without overclaiming. If the template asks for checks, give exact commands with passed/failed/not-run, and check only items actually satisfied. List only relevant documentation. Keep the title brief and in commit style.
-
 
 ## PR description (when a PR is requested)
 
