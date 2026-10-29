@@ -108,8 +108,7 @@ Before committing or pushing, determine whether the branch is in a tracked or re
 - Commit only the intended changes, on the branch that owns them. Do not switch stack branches with uncommitted changes unless they are verifiably preserved.
 - A commit on a parent branch can require rebasing descendants. After committing, check `gh stack view --json` for `needsRebase`. Do not push descendants or adjust PR bases ad hoc.
 - Take the canonical remote from the stack's branches/PRs and `gh stack view --json`, not from `origin` by default. `origin` may be a fork while another remote owns the stack PRs.
-- Get explicit confirmation for each stack mutation (push, submit), naming the exact remote. Sync with `gh stack submit --auto --remote REMOTE`, then verify remote branch SHAs, PR heads/bases, and stack state.
-- Confirm each stack mutation (push, submit), naming the exact remote. Sync with `gh stack submit --auto --remote REMOTE`, then verify remote branch SHAs, PR heads/bases, and stack state.
+- Follow `gh-stack` for stack mutations. Sync with `gh stack submit --auto --remote REMOTE` only when authorized, then verify remote branch SHAs, PR heads/bases, and stack state.
 
 For non-stack branches, use the push flow below.
 
@@ -128,7 +127,6 @@ In order:
       This confirmation satisfies `gh-stack`'s gate for that push; do not ask twice.
     - Non-stack branch: `git push`, or if no upstream is set, `git push -u origin $(git branch --show-current)`.
 
-
 ## Step 8: Report
 
 - What was committed (files changed, commit SHA, subject)
@@ -136,10 +134,6 @@ In order:
 - The remote URL of the commit, if applicable
 
 On failure (hook failure, push rejected, etc.), report the error and suggest a fix. Do NOT retry with `--force` or `--no-verify` unless explicitly asked.
-
-## PR description style (when a PR is requested)
-
-Preserve the repo's PR template and conventions. Match neighboring PRs' terse tone: a one- or two-sentence summary and short change bullets, with no marketing language or filler. State what changed and what is out of scope, without overclaiming. If the template asks for checks, give exact commands with passed/failed/not-run, and check only items actually satisfied. List only relevant documentation. Keep the title brief and in commit style.
 
 
 ## PR description (when a PR is requested)
