@@ -7,7 +7,7 @@ allowed-tools: Bash(git:*), Bash(gh pr:*), Bash(gh repo:*), Read, Write
 
 # Draft PR
 
-Opens a draft PR from the current branch. The body follows the repo's PR template and reads like the repo's recent merged PRs.
+Opens a draft PR from the current branch. The body follows the repo's PR template and the rules below.
 
 ## Before opening
 
@@ -33,34 +33,100 @@ Use the repo's convention. Find it with `gh pr list --state merged --limit 5 --j
 
 ## Body
 
-Find the template: `.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_request_template.md`, `docs/`, the repo root, or a `PULL_REQUEST_TEMPLATE/` directory (if several, ask which). Use its headings in its order. Delete a section only if it is empty. Read the last few merged PRs (`gh pr list --state merged --limit 3`, then `gh pr view <n>`) and match their tone and length. Apply the `create` skill's style pass and the system prompt's style rules to the body (answer first, no recap, no emdashes, no LLM-speak, fewest words).
+Find the template: `.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_request_template.md`, `docs/`, the repo root, or a `PULL_REQUEST_TEMPLATE/` directory (if several, ask which). Use its headings in its order. Delete a section only if it is empty.
 
 If there is no template, use:
 
 ```
 ## Summary
-One to three sentences: what the PR adds or changes and what it does, in plain words.
-
 ## Changes
-- One bullet per change, naming the function, flag, env var or file in backticks.
-- Say what the code does and why where it is not obvious, and link related PRs as #NN.
-
-## Validation
-The exact commands that were run, and in which modules.
+## Validation / Examples
 ```
 
-Template sections that are not in the fallback:
+With a template, Validation / Examples becomes an `### Examples` subsection at the end of Changes, so the example rules below apply there. A subsection of Changes is not an extra section.
 
-- **Ticket (Jira or similar):** the key from the branch name, or ask. "None filed." if none.
-- **Documentation:** paths of the docs updated.
-- **Checklist:** copy the template's items verbatim.
+Template-only sections: Ticket (the key from the branch name, or ask; "None filed." if none) and Documentation (paths of the docs updated).
 
-Rules:
+## Rules
 
-- Describe only what is in the pushed diff. Never mention uncommitted or untracked files, local scripts, or other local state; a reviewer cannot see them.
-- Do not add a "Not in this PR" section.
-- Check a checklist box only if it is true. Leave it unchecked, with a one-line reason, if not (for example no tests were added).
-- Validation lists commands that were actually run. If something was not run, say so in one line.
-- Ticket keys belong in the PR body only; never put them in code or docs.
-- No emojis, no emdashes. End with the session's attribution line for PR descriptions, without an emoji.
-- Note breaking changes under Changes, with who is affected.
+Check every rule against the body before showing it.
+
+1. Never add sections beyond the template's or the fallback's. An `### Examples` subsection inside Changes is allowed.
+2. Describe only the pushed diff; no local files, scripts or state.
+3. Tone and length follow the system prompt's style rules and the
+   `create` style pass: answer first, no recap, no emdashes, no emojis,
+   fewest words.
+4. No attribution line; no mention of the AI model or tool.
+5. Link PRs as #NN. Ticket keys only in the body, never in code or docs.
+6. The summary is about 150 characters and says only what the PR changes.
+   If the PR adds a component meant to be used by current code or by a
+   later PR in the stack, add a RELEVANCE statement: a new line (own
+   paragraph) right after the summary. It shows how existing code would
+   use the component, with a permalink to the existing code that would
+   change, on the default branch (commit SHA of its current head) if the
+   code is there, else on the branch of the PR that adds it, and the
+   one-line call, and says how
+   that code functions in the codebase now (what runs through it, and
+   which components). Check that claim against the code before writing
+   it. Only if summary plus relevance stay under 250 visible characters
+   (link text counts, the URL does not); otherwise skip it.
+7. Changes has one short bullet per change a reviewer cannot see from the
+   diff, naming the function, flag, env var or file in backticks. Say why
+   only where it is not obvious.
+   Write each bullet for a reader with no editor or LSP: no unexplained
+   terms ("later field", "the record's own"), no code-internal jargon. If a
+   bullet describes a rule, precedence, ordering or edge case, show it in
+   `### Examples` with a short code snippet and its real output. Point to
+   it by bolded name, never by number: `see **"Replaced field"** example below`, so a reader
+   can find it with a text search. With only a few examples, "example(s)
+   below" is enough. Name each example with a bold label. A bullet that needs the diff open to
+   understand has failed.
+8. Changes skips renames, moves, file lists, comment updates and other
+   follow-on edits. Group a move or refactor into one bullet.
+9. Docs updated to match the code are one bullet: "Updated `<file>` to
+   match." If the docs add something beyond the code change, state its
+   effect in one short sentence.
+10. Breaking changes go under Changes, with who is affected.
+11. Validation / Examples is very concise: Before and After labels,
+    always, unless the change adds output with no prior equivalent. Each
+    has a multi-line fenced code block (command and output, or the value
+    or config that changed). Multi-line wins over fewest words: expand
+    compact JSON to indented form, one field per line, even when short.
+    Show only what was actually run. For a new API, show the call (Go, shell,
+    etc.) and its output, one example per rule a bullet states.
+12. Never list what was not done, run or changed.
+13. A checklist only if the template has one. Check a box only if true;
+    otherwise leave it unchecked with a one-line reason.
+
+## Example
+
+A correctly formatted Before/After block:
+
+````
+Before:
+```json
+{
+  "msg": "http request",
+  "method": "POST",
+  "status": 200
+}
+```
+
+After:
+```json
+{
+  "msg": "http request",
+  "service.name": "orders.api",
+  "method": "POST",
+  "status": 200
+}
+```
+````
+
+## Before returning
+
+- Every fenced block spans more than one line.
+- Before and After are both present, or the change adds new output.
+- No section outside the template or the fallback.
+- No attribution, model or tool mention.
+- No "not run", "not changed" or "not done" statements.
