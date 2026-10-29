@@ -124,9 +124,10 @@ In order:
 2. Ask a direct yes/no question: "Push `<sha> <subject>` to `<remote>`?" Use the harness's interactive question tool with an explicit two-option `yes`/`no` list (on maki, the `gate` tool does this from three flat strings). Only a `yes` answer counts as confirmation.
 3. Wait for an explicit yes. Silence, a tangent, or an "ok" to a different question means do NOT push. If ambiguous, ask again.
 4. Only then push:
+    - Stack branch: follow Step 6 and push to the canonical stack remote, not the configured `origin` upstream. `git push` alone does not update stacked PR bases.
+      This confirmation satisfies `gh-stack`'s gate for that push; do not ask twice.
+    - Non-stack branch: `git push`, or if no upstream is set, `git push -u origin $(git branch --show-current)`.
 
-- Stack branch: follow Step 6 and push to the canonical stack remote, not the configured `origin` upstream. `git push` alone does not update stacked PR bases.
-- Non-stack branch: `git push`, or if no upstream is set, `git push -u origin $(git branch --show-current )`.
 
 ## Step 8: Report
 
