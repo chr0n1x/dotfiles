@@ -9,4 +9,4 @@
 	url = https://github.com/DietrichGebert/ponytail.git
 [submodule ".claude/plugins/noodle"]
 	path = .claude/plugins/noodle
-	url = https://github.com/poteto/noodle
+	url = https://github.com/chr0n1x/noodle
