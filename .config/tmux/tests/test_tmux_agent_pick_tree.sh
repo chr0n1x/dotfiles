@@ -22,7 +22,7 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/pick-tree-test.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 
 # --- fake tmux on PATH -------------------------------------------------------
-# emit_rows calls exactly two tmux subcommands:
+# The picker calls two tmux subcommands:
 #   tmux display-message -p '#{pane_id} #{window_width}'   -> "<pane> <width>"
 #   tmux list-panes -a -F <fmt>                            -> tab-separated rows
 # Both read their data from env vars so a test case can shape the tree.
@@ -30,9 +30,12 @@ cat > "$TMP/tmux" <<'FAKE'
 #!/usr/bin/env bash
 case "$1" in
     display-message)
-        # Only the no-target form is used by emit_rows; return the current
-        # pane id + window width.
-        printf '%s %s' "${FAKE_CUR_PANE:-%1}" "${FAKE_WIN_W:-200}"
+        # emit_rows asks for '<pane> <width>'; the --kill guard asks for the
+        # pane id alone. Answer the format that was requested.
+        case "$*" in
+            *window_width*) printf '%s %s' "${FAKE_CUR_PANE:-%1}" "${FAKE_WIN_W:-200}" ;;
+            *) printf '%s' "${FAKE_CUR_PANE:-%1}" ;;
+        esac
         ;;
     list-panes)
         printf '%s' "$FAKE_PANES"
@@ -157,18 +160,24 @@ assert "first pane uses ├─ (not last)" "1" "$(printf '%s\n' "$panelines" | s
 # must compare against $home_pane (the popup's home pane), not the live pane,
 # or every kill of the previewed target gets refused as "the pane you are in".
 #
-# We test the guard's decision via the exit code of a timed --kill run:
-#   0   = the guard refused (printed to /dev/tty, exited before the read)
-#   124 = the guard passed (printed the prompt to /dev/tty, then blocked on the
-#         read from /dev/tty until the timeout). We never answer, so no actual
-#         kill happens.
+# We test the guard's decision by what it writes to the tty. AGENT_PICK_TTY
+# points the picker's tty at an empty file, so it needs no real terminal and the
+# prompt's read hits EOF at once (no answer, no kill):
+#   "refusing: ..."   = the guard refused
+#   "Kill pane ...?"  = the guard passed and prompted
 # ---------------------------------------------------------------------------
-kill_guard_exit() {
-    # $1 = home_pane value, $2 = the full emit line (pane target).
-    # Returns the --kill exit code (0 refused, 124 proceeded).
-    PATH="$TMP:$PATH" home_pane="$1" FAKE_PANES="" \
-        timeout 2 bash "$PICKER" --kill "$2" </dev/null >/dev/null 2>&1
-    return $?
+kill_guard_out() {
+    # $1 = home_pane value ("" = unset), $2 = the full emit line (pane target),
+    # $3 = live current pane for the fake tmux. Prints what --kill wrote to the tty.
+    : > "$TMP/tty"
+    if [ -n "$1" ]; then
+        PATH="$TMP:$PATH" home_pane="$1" FAKE_CUR_PANE="$3" FAKE_PANES="" AGENT_PICK_TTY="$TMP/tty" \
+            bash "$PICKER" --kill "$2" </dev/null >/dev/null 2>&1
+    else
+        PATH="$TMP:$PATH" FAKE_CUR_PANE="$3" FAKE_PANES="" AGENT_PICK_TTY="$TMP/tty" \
+            bash "$PICKER" --kill "$2" </dev/null >/dev/null 2>&1
+    fi
+    cat "$TMP/tty"
 }
 
 # A pane line for pane %2 (the zsh pane), built the way emit_rows does.
@@ -177,25 +186,23 @@ kill_guard_exit() {
 kill_line() {
     printf '%s' 'pane:s1:%2	2	s1	%2	      └─   zsh'
 }
+kline=$(kill_line)
 
 # 5. home_pane is the nvim pane (%1); target is the zsh pane (%2). The live
 #    current pane is %2 (preview switched to it), but the guard must compare
-#    against home_pane (%1), so it must PROCEED (exit 124), not refuse (exit 0).
-kline=$(kill_line)
-kill_guard_exit "%1" "$kline"; rc=$?
-assert "killing the previewed pane is allowed (guard uses home_pane, not live pane)" "124" "$rc"
+#    against home_pane (%1), so it must PROCEED (prompt), not refuse.
+assert_grep "killing the previewed pane is allowed (guard uses home_pane, not live pane)" \
+    "Kill pane %2\\?" "$(kill_guard_out "%1" "$kline" "%2")"
 
-# 6. home_pane IS the target pane (%2). The guard must REFUSE (exit 0) -
-#    killing the pane you are actually in would kill the popup's own tree.
-kill_guard_exit "%2" "$kline"; rc=$?
-assert "killing the pane you are actually in is refused" "0" "$rc"
+# 6. home_pane IS the target pane (%2). The guard must REFUSE - killing the
+#    pane you are actually in would kill the popup's own tree.
+assert_grep "killing the pane you are actually in is refused" \
+    "refusing: that is the pane you are in" "$(kill_guard_out "%2" "$kline" "%1")"
 
 # 7. home_pane unset (direct invocation fallback). The guard falls back to the
-#    live current pane (FAKE_CUR_PANE=%1). Target %2 != %1, so PROCEED (124).
-PATH="$TMP:$PATH" FAKE_CUR_PANE="%1" FAKE_PANES="" \
-    timeout 2 bash "$PICKER" --kill "$kline" </dev/null >/dev/null 2>&1
-rc=$?
-assert "with home_pane unset, guard falls back to the live pane" "124" "$rc"
+#    live current pane (%1). Target %2 != %1, so PROCEED (prompt).
+assert_grep "with home_pane unset, guard falls back to the live pane" \
+    "Kill pane %2\\?" "$(kill_guard_out "" "$kline" "%1")"
 
 # --- summary -----------------------------------------------------------------
 echo

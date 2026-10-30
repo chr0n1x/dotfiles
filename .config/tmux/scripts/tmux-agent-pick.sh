@@ -576,6 +576,8 @@ fi
 # Run via fzf's execute() (not execute-silent) so we have a tty to prompt on.
 if [ "${1:-}" = "--kill" ]; then
     line="${2:-}"
+    # AGENT_PICK_TTY overrides the prompt tty (tests point it at a file).
+    tty="${AGENT_PICK_TTY:-/dev/tty}"
     target=$(printf '%s' "$line" | cut -f1)
     # The pane the popup was opened from: killing it (directly, or as part of
     # its window) would kill this session's own process tree. Refuse up front.
@@ -587,18 +589,18 @@ if [ "${1:-}" = "--kill" ]; then
     case "$target" in
         sess:*)
             # Session header: a visual group label, not killable here.
-            printf 'not killable: session header\n' > /dev/tty
+            printf 'not killable: session header\n' > "$tty"
             ;;
         win:*)
             sess=${target#win:}; sess=${sess%%:*}
             win=${target##*:}
             # Refuse if the current pane is in this window.
             if [ -n "$cur_pane" ] && printf '%s\n' "$(tmux list-panes -t "${sess}:${win}" -F '#{pane_id}' 2>/dev/null)" | grep -qx "$cur_pane"; then
-                printf 'refusing: that window holds the pane you are in\n' > /dev/tty
+                printf 'refusing: that window holds the pane you are in\n' > "$tty"
                 exit 0
             fi
-            printf 'Kill window %s:%s? [y/N] ' "$sess" "$win" > /dev/tty
-            read -r ans < /dev/tty
+            printf 'Kill window %s:%s? [y/N] ' "$sess" "$win" > "$tty"
+            read -r ans < "$tty"
             case "$ans" in
                 [yY]*)
                     # Kill every pane's process tree in the window, then remove it.
@@ -614,11 +616,11 @@ if [ "${1:-}" = "--kill" ]; then
             rest=${target#pane:}
             paneid=${rest##*:}
             if [ -n "$cur_pane" ] && [ "$paneid" = "$cur_pane" ]; then
-                printf 'refusing: that is the pane you are in\n' > /dev/tty
+                printf 'refusing: that is the pane you are in\n' > "$tty"
                 exit 0
             fi
-            printf 'Kill pane %s? [y/N] ' "$paneid" > /dev/tty
-            read -r ans < /dev/tty
+            printf 'Kill pane %s? [y/N] ' "$paneid" > "$tty"
+            read -r ans < "$tty"
             case "$ans" in
                 [yY]*)
                     kill_pane_tree "$paneid"
