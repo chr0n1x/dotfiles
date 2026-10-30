@@ -105,8 +105,9 @@ Both show in the UI Reviews tab (guide 3.2 "The two review queues"):
 ## Step 1: Read the config and build the attention list
 
 ```bash
-cd "${ARGUMENTS:-$(pwd)}" && grep -nE 'external_stages|extra_stages|publish_action|auto_verify_quality|max_rework|^mode' .noodle.toml
+cd "${ARGUMENTS:-$(pwd)}" && grep -nE 'external_stages|extra_stages|publish_action|auto_verify_quality|max_rework|^mode|^\[stages\.|^accept|^reject|^\[hooks\]|^(before|after)(_each)? *=' .noodle.toml
 noodle order --help >/dev/null 2>&1 && echo "noodle order: available"
+noodle order --help 2>/dev/null | grep -q resolve && echo "noodle order resolve: available"
 noodle review list --json
 EXT=$(sed -n 's/^external_stages *= *\[\(.*\)\]/\1/p' .noodle.toml | tr -d '" ')
 curl -s localhost:3000/api/snapshot | jq -r --arg ext "$EXT" '
@@ -121,7 +122,15 @@ every stage's status and the **external stages still left**. An order is done he
 when it has none left and has been published or closed.
 
 If `noodle order` is missing, the binary predates stage completion: use only the
-parked-stage steps and say so. If the snapshot call fails, the loop is not
+parked-stage steps and say so. If `resolve` is missing, the binary predates stage
+outcomes: offer only Continue, Request Changes and Reject in Step 4.
+
+`[stages.<task>] accept/reject` set what happens when a stage of that task
+finishes without a human; an unset state parks a stage with changes in
+supervised mode. `[hooks]` stages (`after` defaults to `reflect`) never park and
+never change the order's result. A stage's `outcomes` in the snapshot are its
+verdicts so far (state, action, feedback); show them in the briefing when
+present. If the snapshot call fails, the loop is not
 running: read `.noodle/pending-review.json` instead and say so. Check for a
 `noodle start` process rather than trusting `.noodle/status.json`, which can
 still say `running` after the loop died; UI actions then fail with "Failed to
@@ -206,12 +215,27 @@ not verify) stays behind Inspect.
   of the order").
 
 Ask: Continue, Request Changes (with feedback text the user may edit), Reject,
-Leave parked, Inspect, or Chat. Option descriptions:
+Leave parked, Resolve, Inspect, or Chat (offer at most four plus Inspect and
+Chat; pick the four that fit and put the rest under Resolve). Option
+descriptions:
 
 - Continue: next stage starts; branch kept.
 - Request Changes: in a gated order, re-runs this stage in its worktree with the
   feedback, counted against `max_rework`; the order fails only at the limit. In an
   ungated order it fails the order (the worktree is kept).
+- Resolve: any verdict (accept or reject) with any action, plus feedback that
+  is recorded on the stage and shown to every later stage, reflect included:
+  - `promote`: the next stage runs; a reject still fails the order at its end,
+    after the later stages (for example adversarial-review) and reflect ran.
+  - `exit`: the remaining work stages are skipped and reflect still runs; an
+    accept completes the order, a reject fails it with the feedback, worktree
+    kept.
+  - `park`: stays parked with the verdict recorded.
+  - `retry`: this stage runs again in its worktree with the feedback.
+  - `retry-previous`: the stage before it runs again with the feedback, then
+    this stage again ("send back to sender").
+  Retries count against `max_rework`; at the limit the order fails, worktree
+  kept.
 - Reject: fails the order; the scheduler reads it as bad work and may stop
   scheduling until told otherwise (guide 6.5.1 "The scheduler goes idle"). When
   the user means "cancel", not "wrong", say so to the scheduler right away, with
@@ -219,11 +243,19 @@ Leave parked, Inspect, or Chat. Option descriptions:
   scheduler session runs starts a new one, and whether queued orders survive
   that is unverified.
 
-The same actions are in the UI; offer both. Only on an explicit choice:
+The same actions are in the UI, except Resolve; offer both. Only on an explicit
+choice:
 
 ```bash
 curl -s -X POST localhost:3000/api/control -H 'content-type: application/json' \
   -d '{"action": "<approve|request-changes|reject>", "order_id": "<id>", "prompt": "<feedback, request-changes only>"}'
+```
+
+For Resolve, write the agreed feedback to a file and run, from the project
+root (it waits for the ack and exits non-zero on an error ack):
+
+```bash
+noodle order <id> resolve <task_key> <accept|reject> <promote|exit|park|retry|retry-previous> --feedback-file <file>
 ```
 
 The response has an `id`; read the result with `curl -s
@@ -347,6 +379,10 @@ a non-zero exit is an error ack: show the output.
   stage, up to `[review] max_rework` rounds (default 2), and the ack says which
   round. At the limit, or with no earlier execute stage, the stage re-parks with
   the feedback as a blocking message: tell the user it needs a decision (Step 4).
+- **Other outcomes:** to end the order now ("you hallucinated this; it is not
+  possible"), or to accept and continue regardless, use
+  `noodle order <order_id> resolve <task_key> <accept|reject> <action> --feedback-file <review_path>`
+  with the Step 4 actions instead of `complete`.
 
 Then re-run the Step 1 query for this order:
 
