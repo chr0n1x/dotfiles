@@ -49,9 +49,10 @@ Two checkpoints. Each step is mechanical: do it, then continue.
    search? If not, the note is not done.
 5. **Style pass** on all outgoing text: answer first, no recap, no
    offers, no emdashes, no emojis, fewest words that keep the facts.
-   Keep all lines under 80 chars, including newlines, unless a linter
+   Keep lines under 80 chars in code, comments and docs, unless a linter
    rule or auto-formatter says otherwise. Reply: 3 sentences. PR
-   description: use `draft-pr`.
+   description: use `draft-pr`, and keep each paragraph, bullet and list
+   item on one line (GitHub renders every newline as a line break).
 6. **Write for a reader with no editor.** Comments, docs and PR text
    are read without an LSP and with a small context window.
    - No unexplained terms ("the record's own", "later field"). A line
