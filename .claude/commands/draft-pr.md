@@ -117,6 +117,8 @@ Check every rule against the body before showing it.
 12. Never list what was not done, run or changed.
 13. A checklist only if the template has one. Check a box only if true;
     otherwise leave it unchecked with a one-line reason.
+14. Do not hard-wrap prose: one line per paragraph or bullet. Only code
+    blocks keep their own line breaks.
 
 ## Example
 
@@ -150,3 +152,4 @@ After:
 - No section outside the template or the fallback.
 - No attribution, model or tool mention.
 - No "not run", "not changed" or "not done" statements.
+- No hard-wrapped prose lines.
