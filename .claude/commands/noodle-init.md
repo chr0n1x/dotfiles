@@ -51,9 +51,13 @@ cat "$NOD/VERSION"
 **Existing install:** use it if it runs. Report path, version and any difference
 from the source; offer a rebuild, never do it unasked. A stale symlink counts as
 zero install. Check `noodle --help`, `noodle order --help` and
-`noodle review --help`, and the `[review]` keys in `$NOD/config/fork.go`, for the
+`noodle review --help`, the `[review]` keys in `$NOD/config/fork.go`, and the
+`[stages.<task>]` and `[hooks]` keys in `$NOD/config/outcome.go`, for the
 features the user needs (external holds, `noodle order <id> complete <stage>`,
-`approve-and-publish`, `auto_verify_quality`, worktree links). This command was
+`noodle order <id> resolve`, `approve-and-publish`, `auto_verify_quality`,
+stage outcomes, per-stage harness/model/system prompt, hooks, worktree links).
+A binary without `resolve` in `noodle order --help` predates stage outcomes and
+hooks: it ignores `[stages]` and `[hooks]`. This command was
 written against plugin `main` at `2c2cd29`; the installed binary may be older.
 If a required command or key is missing, name it and ask whether to rebuild or
 defer. Help shows what exists, not that it works.
@@ -198,9 +202,37 @@ base = "<base branch>"
 
 [review]
 auto_verify_quality = true
-external_stages = ["adversarial-review"]
-extra_stages = ["adversarial-review", "reflect"]
+external_stages = []
+extra_stages = ["adversarial-review"]
+max_rework = 4
 publish_action = "draft-pr"
+
+[stages.adversarial-review]
+harness = "claude"
+model = "claude-opus-5-5"
+accept = "promote"
+reject = "retry-previous"
+system_prompt = """
+The adversarial-review skill says to spawn reviewers on the opposite model with `codex exec` or `claude -p`. Ignore that requirement. Run every reviewer with pi on GitHub Copilot's gpt-6.1-sol instead, one call per lens, from the worktree:
+
+pi -p --no-session --provider github-copilot --model gpt-6.1-sol --tools read,bash "<prompt>" < /dev/null > "$REVIEW_DIR/<lens>.md" 2>/dev/null
+
+Build each prompt from references/reviewer-prompt.md as the skill says. Start every lens in ONE foreground Bash call, each pi command ending in `&`, and end that call with `wait`, so the call returns only when all reviewers are done:
+
+pi ... > "$REVIEW_DIR/skeptic.md" 2>/dev/null & pi ... > "$REVIEW_DIR/architect.md" 2>/dev/null & wait
+
+Give that call a timeout of at most 10 minutes (600000 ms). Do not set run_in_background, do not use Monitor, and do not end your turn while a reviewer runs: your session closes when your turn ends, and the stage then counts as finished without a verdict. In Step 4, log reviewer_cli=pi. Do not describe this substitution as a shortfall in the verdict.
+
+After Step 5, end the stage with exactly one stage_message, decided by your Lead Judgment. Emitting it is your last action; never end your turn without it:
+
+- Reject when you accepted at least one high-severity finding. The message goes to the execute agent that reworks the change, so write it for that agent: each accepted finding with file:line, what is wrong and the concrete change to make. Leave out findings you rejected.
+  noodle event emit --session $NOODLE_SESSION_ID stage_message --payload '{"message": "<feedback for the execute agent>", "blocking": true}'
+- Accept otherwise, with a one-line summary of the verdict:
+  noodle event emit --session $NOODLE_SESSION_ID stage_message --payload '{"message": "<summary>", "blocking": false}'
+"""
+
+[hooks]
+after = ["reflect"]
 ```
 
 - **Provider and model:** `claude` or `codex`. Verify the model before writing it
@@ -217,16 +249,16 @@ publish_action = "draft-pr"
 - **Review policy:** keep mode supervised. Ask which stages wait for an external
   reviewer, which extra stages to add, how many rework rounds to allow, whether
   the loop should always run a quality cook after execute, and how a finished
-  order is published. The recommended gated setup:
-
-  ```toml
-  [review]
-  auto_verify_quality = true
-  external_stages = ["adversarial-review"]
-  extra_stages = ["adversarial-review", "reflect"]
-  max_rework = 2
-  publish_action = "draft-pr"
-  ```
+  order is published. The default (the template's `[review]`) runs
+  `adversarial-review` as a cook inside the loop after quality, and
+  `[stages.adversarial-review]` decides what its verdict does (next bullets).
+  `publish_action` keeps the order gated, so `auto_verify_quality` applies.
+  Without `publish_action` and with `external_stages = []` the order is
+  ungated: `auto_verify_quality` is ignored (the config check warns) and no
+  quality cook runs after execute. The alternative holds the review for a
+  reviewer the user picks through `/noodle-review`, with no agent:
+  `external_stages = ["adversarial-review"]`; then drop
+  `[stages.adversarial-review]`, since no cook runs it.
 
   What each key does (verify against `config/fork.go`):
   - `auto_verify_quality`: after each execute succeeds the loop inserts a
@@ -237,7 +269,9 @@ publish_action = "draft-pr"
     name must be the held task key. Accept never publishes. `[]` for none.
   - `extra_stages`: skills added to every order after its quality stage, in list
     order, when the order is promoted; existing names are not duplicated and
-    unknown names are skipped. Orders already promoted are not changed.
+    unknown names are skipped. Orders already promoted are not changed. Leave
+    `reflect` out: it is the default `[hooks] after` hook now, and an older
+    config that lists it here only gets it once.
   - `max_rework`: rework rounds per order, shared by quality rejects, external
     rejects and Request Changes; default 2, 0 disables.
   - `publish_action`: `draft-pr` (builtin: push `noodle/<order>` and open or
@@ -253,6 +287,67 @@ publish_action = "draft-pr"
   configs and fails the order (keeping the worktree) in ungated ones. Details:
   the guide's §3.1 "Gated and ungated orders" and §3.3 "Reject, rework and
   Request Changes".
+- **Stage outcomes:** the template's `adversarial-review` promotes on accept
+  and sends execute back with its feedback on reject. Ask whether to keep that
+  and whether any other task should act on its own; write the answers as
+  `[stages.<task>] accept` and `reject` (verify against
+  `$NOD/docs/reference/configuration.md`). Actions:
+  `promote` (next stage runs, branch kept, nothing merged), `exit` (skip the
+  remaining work stages; `after` hooks still run; a reject fails the order),
+  `park` (wait for `noodle order <id> resolve`), `retry` (re-run this stage
+  with the feedback), `retry-previous` (re-run the work stage before it with the
+  feedback, then a copy of this stage). Both retries count against
+  `max_rework`; at the limit the order fails and the worktree is kept. Two
+  rules the user needs before choosing:
+  - An unset state keeps the mode's behavior, and supervised mode parks every
+    finished stage, so a stage that should move on by itself needs
+    `accept = "promote"` even in supervised mode.
+  - A stage is rejected when its cook fails or ends with a blocking
+    `stage_message`, whose text becomes the feedback. A skill that never emits
+    one always reads as accepted: `quality` emits it, `adversarial-review` does
+    not, so a `reject` on it never fires unless `system_prompt` (next bullet)
+    adds that step.
+- **Per-stage cook and skill wrapping:** `[stages.<task>]` also takes `harness`
+  (`claude` or `codex`) and `model`, which replace the scheduler's choice on
+  stages that have not started; `provider` (codex's `model_provider`, only with
+  `harness = "codex"`); and `system_prompt`, text placed after the skill in the
+  cook's system prompt so it can override one of the skill's instructions.
+  Skills are copies and never hand-patched (Step 4), so `system_prompt` is how
+  a project changes one. The template's `adversarial-review` defaults: an
+  opus cook (a different model from execute's, for a second opinion) whose
+  reviewers run through pi on `github-copilot` / `gpt-6.1-sol`, and a
+  `system_prompt` in two parts. Ask whether to keep each:
+  - **Reviewer swap** (first paragraphs): replaces the skill's `codex exec` /
+    `claude -p` requirement with one reviewer command. To keep the skill's own
+    CLI, delete these paragraphs; for another CLI, provider or model, rewrite
+    the command and the `reviewer_cli=` value. Before writing it, check the
+    CLI exists (`command -v`), list its models (for pi,
+    `pi --list-models <search>`), check auth (for pi,
+    `pi auth check --provider <p> --model <m>`), and run the exact command
+    once from the repo with a trivial prompt after the user agrees, since it
+    may be a paid call. Never install a CLI. Keep the "one foreground Bash
+    call ending in `wait`" rule: with `exit_after_turn = true` a cook that
+    starts its reviewers in the background, or waits on them with `Monitor`,
+    ends its turn and its session closes before it records a verdict.
+  - **Verdict step** (last paragraph): ends the stage with one
+    `stage_message`, blocking with feedback for the execute agent when the
+    cook accepts a high-severity finding, non-blocking otherwise. Keep it
+    whenever `reject` is set. A stage with `reject` set that ends without a
+    `stage_message` re-runs with a reminder, counted against `max_rework`,
+    and parks for the user at the limit. Agree which severities count.
+
+  Restrict the reviewers' tools to read-only where the CLI allows it (pi:
+  `--tools read,bash`; that still lets bash write). A running loop picks up
+  `[stages]` changes only after a restart, and stages that already started
+  keep their model.
+- **Hooks:** `[hooks]` lists skills the loop runs around work stages: `before`
+  and `after` once per order, `before_each` and `after_each` around every work
+  stage (`after_each` after its last attempt). The template writes
+  `after = ["reflect"]`, which is also what noodle uses when `after` is unset;
+  writing it keeps reflect visible in the config. `after = []` turns reflect
+  off. Hooks are added at promotion to orders that have not started, never
+  park, are skipped when they fail and record no verdict. Ask whether the user
+  wants anything besides reflect.
 - **How the user reviews:** ask how they want `/noodle-review` to brief them.
   Is there a doc or runbook to follow (they may point at one, or describe it in
   chat)? What do they want to see for an order: tickets, PRs, diffs, run logs,
@@ -451,6 +546,12 @@ the ones that apply.
   `noodle start --once` with orders queued.
 - Scheduling: ordering lines between items keep the scheduler to one order; a
   Reject reads as bad work, so say "cancelled" when that is meant.
+- Reviewer CLI: `adversarial-review` shells out to another model's CLI; when
+  that CLI is missing or signed out the review can come back thin or empty.
+  Wrap it with `[stages.adversarial-review] system_prompt` and smoke-test the
+  command (Step 3).
+- Verdicts: a `[stages.<task>] reject` action only fires on a failed cook or a
+  blocking `stage_message`; check the skill, or its `system_prompt`, emits one.
 
 ## Step 6b: Verify
 
@@ -468,7 +569,9 @@ cooks and leave them orphaned and unlogged.
 
 One line each: binary and source commit and capability gaps; skills and any
 difference from the source; adapters and todos path; model, concurrency and
-scheduler policy; delivery and `[review]` values; MCP servers and directory
+scheduler policy; delivery and `[review]` values; `[stages.<task>]` actions,
+harness/model and whether a `system_prompt` wraps the skill, with the reviewer
+CLI's auth and smoke-test result; `[hooks]` values; MCP servers and directory
 grants; credentials and readiness prerequisites; verification note, helpers and
 results; standing-permission and model-routing notes; root changes left; index
 links.
@@ -477,6 +580,10 @@ Then explain how the loop is driven:
 - External holds wait until `/noodle-review` resolves them; the loop looks
   stalled otherwise. `/noodle-review` also sends `approve-and-publish` for an
   order awaiting publish.
+- A parked stage takes a verdict with
+  `noodle order <id> resolve <stage> <accept|reject> <action> [--feedback-file <f>]`;
+  the feedback reaches every later stage's prompt. Stages with a configured
+  `[stages.<task>]` action move on by themselves.
 - In the UI, a gated order's parked stage offers "Continue to <next stage>"
   (plain "Approve" at the last stage); Approve & Publish appears only when the
   order awaits publish; every action button shows a spinner until the loop
