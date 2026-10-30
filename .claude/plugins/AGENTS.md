@@ -1,17 +1,18 @@
-# .claude/plugins - vendored agent skills
+# .claude/plugins - vendored agent skills (ponytail)
 
-External skill repos, vendored as submodules. Each skill is exposed via a
-symlink in `../skills/` (scanned by maki and Claude Code):
-`../skills/<name> -> ../plugins/<repo>/<skill-dir>` - the target is
-relative to the symlink's own directory, so from `../skills/` it takes ONE
-`..` to reach `plugins/`. Verify with `readlink -f ../skills/<name>/SKILL.md`.
-Submodule mechanics: `../../STRUCTURE.md`.
+Vendored skill repos that stay under `.claude/plugins/`. Each skill is
+exposed via a symlink in the shared skills dir `agents/skills/`:
+`agents/skills/<name> -> ../../.claude/plugins/<repo>/<skill-dir>` (relative
+to `agents/skills/`). Verify with
+`readlink -f agents/skills/<name>/SKILL.md` from the repo root. Other vendored
+tools (noodle) live in `agents/tools/` - see `agents/tools/AGENTS.md`.
+Layout and submodule mechanics: `../../STRUCTURE.md`.
 
 ## ponytail
 
 Repo: `https://github.com/DietrichGebert/ponytail` (lazy senior-dev mode).
 All 6 skills linked. Only the `ponytail` skill is also exposed as a command
-(`.claude/commands/ponytail.md -> ../skills/ponytail/SKILL.md`): it is the
+(`agents/commands/ponytail.md -> ../skills/ponytail/SKILL.md`): it is the
 persistent mode, the one meant to be invoked as `/ponytail [level]`. The
 other 5 (`audit`, `debt`, `gain`, `help`, `review`) are one-shot skills that
 carry their own `/ponytail-*` triggers in their descriptions and need no
@@ -19,48 +20,3 @@ command entry. The repo's own 6 `.toml` command files are not linked -
 `.toml` is not this repo's command format and the skill symlinks cover the
 commands. Bump with
 `git submodule update --remote .claude/plugins/ponytail`.
-
-## noodle
-
-Repo: `https://github.com/poteto/noodle` (Go agent-orchestration framework).
-Added 2026-10-25. Framework NOT installed: no binary, no `.noodle.toml`, no
-`adapters/`. Of the repo's 29 skills, 3 are linked:
-
-| linked | note |
-|---|---|
-| `ast-grep` | the `ast-grep` binary is NOT installed; skills reference it conditionally, rg fallback |
-| `debugging` | root-cause methodology |
-| `unslop` | strip AI-speak from prose; also exposed as a command file (`../commands/unslop.md -> SKILL.md`) |
-
-`review` was linked and exposed as a command file, then removed: it
-collided with this repo's own `review` skill (house style, same trigger
-phrases). Remains available in the submodule if wanted back.
-
-The loop playbook (the remaining 16 skills) is not linked here - it is
-shipped per-project by the `noodle-init` command
-(`.claude/commands/noodle-init.md`), which copies them from this submodule
-into each Noodle project's `.agents/skills/`. Companions: `noodle-feed`
-(epic -> refined `brain/todos.md` items) and `noodle-distill` (general
-learnings from the project's gitignored `brain/` -> the user's global
-Obsidian vault via the `obsidian-*` skills). All three follow the normal
-command+skill-symlink convention. The project `brain/` vault is personal and
-untracked by design; `/noodle-distill` is what promotes durable bits out of
-it.
-
-Cross-references: `analyze` (step 3: grep finds regions, ast-grep confirms
-shapes) and `watch-tests` (step 4: `debugging` for non-obvious failures,
-ast-grep for structural ones).
-
-Not linked, and why:
-- `commit`, `worktree`, `review` - collide with this repo's `commit-push`,
-  `worktree`, and `review` skills; noodle's worktree skill is entirely
-  `noodle worktree` CLI, dead without the binary; noodle's `review` was
-  linked then removed on trigger collision with the house `review` skill
-- loop pipeline (`noodle`, `schedule`, `execute`, `plan`, `quality`,
-  `testing`, `todo`, `oops`, `adversarial-review`, `refine`) and brain
-  cluster (`brain`, `reflect`, `meditate`, `ruminate`) - inert without the
-  binary and the `brain/` vault
-- meta (`codex` needs the codex CLI; `find-skills`, `skill-creator`)
-- domain best-practices (`frontend-design`, `interaction-design`,
-  `make-interfaces-feel-better`, `go/react/ts-best-practices`) - not relevant
-  to this stack (zsh/lua/python) yet

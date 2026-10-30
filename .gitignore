@@ -19,8 +19,13 @@ __pycache__/
 .config/maki/permissions.toml
 .config/maki/plugin.toml
 
-.pi/agent/
+# harness state is ignored; the skills/prompts links into agents/ are tracked
+.pi/agent/*
 !.pi/agent/settings.json
-.pig/agent/
+!.pi/agent/skills
+!.pi/agent/prompts
+.pig/agent/*
 !.pig/agent/settings.json
+!.pig/agent/skills
+!.pig/agent/prompts
 .maki/

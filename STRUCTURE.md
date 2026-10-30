@@ -12,14 +12,15 @@ separate repo (`chr0n1x/neovim-configs`). They have independent git state.
 - `git status` at the root shows the submodule as one opaque line: `M .config/nvim`.
   That hides how many files actually changed inside it. Always run
   `git -C .config/nvim status` to see the real picture.
-- Other submodules: `.tmux/plugins/tpm` (tmux plugin manager) and
-  `.claude/plugins/{ponytail,noodle}` (vendored agent-skill repos -
-  `.claude/plugins/AGENTS.md` records what is exposed and why). Same rule.
+- Other submodules: `.tmux/plugins/tpm` (tmux plugin manager),
+  `.claude/plugins/ponytail` and `agents/tools/noodle` (vendored agent-skill
+  repos - `.claude/plugins/AGENTS.md` and `agents/tools/AGENTS.md` record what
+  is exposed and why). Same rule.
 
 ## Submodules: the harness knows, the agent does not act
 
 This repo has several submodules (`.config/nvim`, `.tmux/plugins/tpm`,
-`.claude/plugins/ponytail`). The harness is expected to understand that layout:
+`.claude/plugins/ponytail`, `agents/tools/noodle`). The harness is expected to understand that layout:
 each submodule is its own git repo with its own remote, and a change inside one
 is not visible to a fresh clone of the dotfiles root until the pointer in the
 root is bumped and both are pushed (submodule first, then the root, so the
@@ -49,6 +50,23 @@ Consequences:
   Do not misread that as a second copy. There is one copy; it is the repo file.
 - Editing `~/.config/nvim/foo.lua` edits the repo file. No sync step needed.
 - `readlink -f` resolves any of these to the repo path. Three spellings, one file.
+
+## Agent skills and commands
+
+`agents/` is the single source for skills and commands. It is excluded from
+stow (`.stow-local-ignore`); harnesses reach it through relative symlinks:
+
+```
+.claude/skills      -> ../agents/skills
+.claude/commands    -> ../agents/commands
+.copilot/skills     -> ../agents/skills
+.pi/agent/skills    -> ../../agents/skills
+.pi/agent/prompts   -> ../../agents/commands
+.pig/agent/skills   -> ../../agents/skills
+.pig/agent/prompts  -> ../../agents/commands
+```
+
+maki and crush read `~/.claude/skills`. Check with `make test-agent-links`.
 
 ## Harness notes
 

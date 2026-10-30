@@ -8,5 +8,5 @@
 	path = .claude/plugins/ponytail
 	url = https://github.com/DietrichGebert/ponytail.git
 [submodule ".claude/plugins/noodle"]
-	path = .claude/plugins/noodle
+	path = agents/tools/noodle
 	url = https://github.com/chr0n1x/noodle

@@ -18,6 +18,7 @@ exclude = [
     ".config/nvim",
     ".config/tmux/plugins",
     ".claude/plugins",
+    "agents/tools",
     ".tmux/plugins",
     ".test-cache",
     "node_modules",

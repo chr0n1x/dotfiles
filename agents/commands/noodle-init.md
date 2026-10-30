@@ -10,8 +10,8 @@ argument-hint: "[target repo path, default: pwd]"
 
 # Noodle Init
 
-Set up Noodle for one project. The vendored checkout at `~/.claude/plugins/noodle`
-(NOD) is the source for skills and adapters: copy them, never hand-patch the
+Set up Noodle for one project. The vendored checkout at `agents/tools/noodle` in the
+dotfiles repo (NOD) is the source for skills and adapters: copy them, never hand-patch the
 copies. A change every project needs goes into the plugin source and is copied
 again; project-specific rules live in `brain/principles/`.
 
@@ -32,7 +32,9 @@ cd "$TARGET" && git rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
   { echo "not a git repo"; exit 1; }
 ```
 
-Use the repository root as TARGET. Set `NOD=~/.claude/plugins/noodle` and check
+Use the repository root as TARGET. Set
+`NOD="$(dirname "$(readlink -f ~/.claude/commands/noodle-init.md)")/../tools/noodle"`
+(this command file lives in the repo's `agents/commands/`) and check
 `$NOD/.agents/skills/schedule/SKILL.md` exists; if not, ask for the dotfiles repo
 path. Do not initialize or update a submodule without permission.
 

@@ -1,1 +1,0 @@
-../plugins/noodle/.agents/skills/unslop/SKILL.md

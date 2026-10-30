@@ -59,8 +59,12 @@ test-picker:
 	bash .config/tmux/tests/test_tmux_agent_pick_tree.sh
 	bash .config/tmux/tests/test_tmux_agent_pick_agents.sh
 
+# Harness skills/commands dirs all link into agents/ and nothing dangles.
+test-agent-links:
+	sh scripts/check-agent-links.sh
+
 # Full local gate before pushing: lint (ruff + shellcheck) + picker tests.
-test: docker-test test-picker
+test: docker-test test-picker test-agent-links
 
 clean:
 	rm -rf nvim/plugin ~/.local/share/nvim ~/.config/nvim ~/.cache/nvim ~/.config/nvim ~/.config/zsh ~/.zshrc

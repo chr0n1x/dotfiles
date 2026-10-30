@@ -33,6 +33,10 @@ _darcs
 ^/COPYING
 
 # real file lives at top level; harnesses should symlink to it
+# agents/ is the skills/commands source; harness dirs link into it
+^/agents
+# repo-local env (holds GITHUB_TOKEN); never link it into ~
+^/\.envrc
 ^/AGENTS\.md$
 
 \.nvimlog
@@ -45,3 +49,5 @@ chroma.log
 mcp-server.log
 
 ruff.toml
+\.pytest_cache
+\.ruff_cache
