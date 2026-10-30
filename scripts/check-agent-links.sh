@@ -1,6 +1,7 @@
 #!/bin/sh
-# Every harness skills/commands dir links into agents/, and every skill and
-# command resolves. Run from the repo root: `make test-agent-links`.
+# Every harness skills/commands dir links into agents/, pi/pig load the shared
+# system prompt, and every skill and command resolves.
+# Run from the repo root: `make test-agent-links`.
 fail=0
 err() { echo "FAIL: $*"; fail=1; }
 
@@ -13,6 +14,7 @@ check_link .copilot/skills ../agents/skills
 for h in .pi/agent .pig/agent; do
 	check_link $h/skills ../../agents/skills
 	check_link $h/prompts ../../agents/commands
+	check_link $h/AGENTS.md ../../SYSTEM_PROMPT.md
 done
 
 for d in agents/skills/*/; do

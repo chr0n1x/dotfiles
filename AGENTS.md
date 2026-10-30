@@ -4,7 +4,8 @@ This is the dotfiles repo. Two things an agent working here needs:
 
 - **Behavioral rules** (how to act, commit style, tone): `SYSTEM_PROMPT.md`.
   This is the shared system prompt the harnesses load (`.claude/CLAUDE.md`,
-  `.pi/agent/AGENTS.md`, and `.config/maki/AGENTS.md` all symlink to it).
+  `.pi/agent/AGENTS.md`, `.pig/agent/AGENTS.md`, and `.config/maki/AGENTS.md`
+  all symlink to it).
 - **Repo layout** (submodules, vendored plugins, the `~/.config` symlink map,
   the `~/.maki` runtime dir, git gates): `STRUCTURE.md`.
 
