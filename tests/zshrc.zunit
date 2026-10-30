@@ -79,16 +79,16 @@
   git remote add origin "file:///tmp/gpoh-remote-$$.git"
   git remote set-url --push origin "file:///nonexistent-stranger.git"
 
-  local out
-  out=$(USER=kran zsh -c 'source /app/.config/zsh/scripts/git.sh; gpoh' 2>&1)
-  assert "$out" contains "does NOT look like your fork"
+  run env USER=kran zsh -c 'source /app/.config/zsh/scripts/git.sh; gpoh'
+  assert $state equals 1
+  assert "$output" contains "does NOT look like your fork"
   cd / && rm -rf "$dir"
 }
 
 @test 'gpoh allows push when remote matches $USER' {
   local dir remote
   dir=$(mktemp -d)
-  remote="$dir/remote.git"
+  remote="$dir/kran-remote.git"
   git init -q --bare "$remote"
   cd "$dir"
   git init -q work
@@ -136,9 +136,9 @@
   git remote add origin "file:///nonexistent.git"
   git remote set-url --push origin "file:///nonexistent.git"
 
-  local out
-  out=$(USER=kran GH_USERNAME=otherguy zsh -c 'source /app/.config/zsh/scripts/git.sh; gpoh' 2>&1)
-  assert "$out" contains "does NOT look like your fork"
+  run env USER=kran GH_USERNAME=otherguy zsh -c 'source /app/.config/zsh/scripts/git.sh; gpoh'
+  assert $state equals 1
+  assert "$output" contains "does NOT look like your fork"
   cd / && rm -rf "$dir"
 }
 
@@ -173,8 +173,8 @@
   git remote add origin "file:///nonexistent.git"
   git remote set-url --push origin "file:///nonexistent.git"
 
-  local out
-  out=$(USER=kran GH_ORGS=acme-org,mycorp zsh -c 'source /app/.config/zsh/scripts/git.sh; gpoh' 2>&1)
-  assert "$out" contains "does NOT look like your fork"
+  run env USER=kran GH_ORGS=acme-org,mycorp zsh -c 'source /app/.config/zsh/scripts/git.sh; gpoh'
+  assert $state equals 1
+  assert "$output" contains "does NOT look like your fork"
   cd / && rm -rf "$dir"
 }
