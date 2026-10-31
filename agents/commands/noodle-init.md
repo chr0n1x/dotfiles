@@ -243,8 +243,8 @@ final version, then show what was written.
 mode = "supervised"
 
 [routing.defaults]
-provider = "claude"
-model = "<confirmed model>"
+provider = "pi"
+model = "github-copilot/claude-sonnet-5.5"
 
 [skills]
 paths = [".agents/skills", "<absolute $USER_SKILLS>"]
@@ -275,6 +275,12 @@ args = [
   "Bash(git add -A*)", "Bash(git add --all*)",
   "Bash(git add .)", "Bash(git add . *)",
   "Bash(git commit -a*)", "Bash(git commit --all*)",
+]
+
+[agents.pi]
+args = [
+  "--no-session",
+  "--mcp-config", "<absolute repo>/brain/agent-mcp.json",
 ]
 
 [worktree]
@@ -329,7 +335,9 @@ after = ["reflect"]
 Every table below comes from the Step 2b answers; the template only shows the
 shape. Drop `[stages.adversarial-review]` when no kind uses that stage.
 
-- **Provider and model:** `claude`, `codex`, `pi`, `pig`, `maki` or `copilot`.
+- **Provider and model:** default to `pi` with
+  `github-copilot/claude-sonnet-5.5`; ask whether to keep it. The choices are
+  `claude`, `codex`, `pi`, `pig`, `maki` or `copilot`.
   Check the CLI exists (`command -v`; never install one) and verify the model
   with a trivial prompt before writing it; ask before paid calls:
   `claude -p --model <id> "reply with ok"`,
@@ -504,7 +512,16 @@ argument across:
 - **maki** reads Claude's stream-json and runs with `--yolo`; it accepts
   `--allowed-tools`/`--disallowed-tools` but not `--add-dir` or `--mcp-config`.
 - **pi / pig** run `-p --mode json` with the skill in `--append-system-prompt`.
-  Useful args: `--no-session`, `--tools`, `--no-mcp`, `--no-context-files`.
+  The template's `[agents.pi]` keeps cook runs out of pi's session history
+  (`--no-session`) and points MCP at the same `brain/agent-mcp.json` as
+  Claude. `--mcp-config` comes from the `pi-mcp-adapter` extension, not pi
+  itself: check `pi --help | grep -- --mcp-config` first, and without it use
+  `--no-mcp` instead. The adapter replaces only the global MCP config with
+  that file; project files such as `.mcp.json` still load. pi has no
+  `--add-dir` (it reads any path) and no per-command bash deny list, so the
+  blanket `git add`/`git commit -a` ban rests on the skill rules in Step 4b.
+  Other args: `--tools`, `--exclude-tools` (tool names, MCP tools included),
+  `--no-context-files`. Copy the table to `[agents.pig]` when cooks use pig.
 - **copilot** runs `--output-format json --yolo` with the whole prompt, skill
   included, on stdin. It fails auth when `GITHUB_TOKEN`, `GH_TOKEN` or
   `COPILOT_GITHUB_TOKEN` holds a token without Copilot access. Ask whether to
