@@ -78,7 +78,9 @@ features the user needs (external holds, `noodle order <id> complete <stage>`,
 stage outcomes, per-stage harness/model/system prompt, hooks, worktree links).
 A binary without `resolve` in `noodle order --help` predates stage outcomes and
 hooks: it ignores `[stages]` and `[hooks]`. This command was
-written against plugin `main` at `2c2cd29`; the installed binary may be older.
+written against plugin `main` at `2c2cd29` plus the local multi-provider
+changes (`pi`, `pig`, `maki` and `copilot` harnesses, `inherit_env`, and
+`noodle pause|resume|drain`); the installed binary may be older.
 If a required command or key is missing, name it and ask whether to rebuild or
 defer. Help shows what exists, not that it works.
 
@@ -87,7 +89,7 @@ packages, so ask first. Require `go`, `node`, `corepack` on PATH; do not install
 them. The binary embeds `ui/dist/client`, so build the UI first; plain
 `npm install` does not work for this pnpm workspace. Build to a new file and
 rename it over `bin/noodle`, keeping a dated backup, and only while no cook or
-scheduler session runs (`ps -axo pid,command | grep 'claude --output-format'`
+scheduler session runs (`ps -axo pid,command | grep -E '(claude|maki|pi|pig|copilot|codex) .*(--output-format|--mode json|exec --json)'`
 shows none, or the loop is stopped):
 
 ```bash
@@ -260,6 +262,9 @@ edit = "adapters/backlog-edit"
 max_concurrency = <n>          # suggest 2 for the first run, then raise
 exclude_scheduler = true
 
+[agents]
+# inherit_env = ["GITHUB_TOKEN", "AWS_*"]   # only when the user asks to limit env
+
 [agents.claude]
 exit_after_turn = true
 args = [
@@ -324,15 +329,22 @@ after = ["reflect"]
 Every table below comes from the Step 2b answers; the template only shows the
 shape. Drop `[stages.adversarial-review]` when no kind uses that stage.
 
-- **Provider and model:** `claude` or `codex`. Verify the model before writing it
-  (`claude -p --model <id> "reply with ok"`; ask before paid calls). The scheduler
+- **Provider and model:** `claude`, `codex`, `pi`, `pig`, `maki` or `copilot`.
+  Check the CLI exists (`command -v`; never install one) and verify the model
+  with a trivial prompt before writing it; ask before paid calls:
+  `claude -p --model <id> "reply with ok"`,
+  `maki -p --model <provider/id> "reply with ok"`,
+  `pi -p --no-session --model <provider/id> "reply with ok"` (same for `pig`),
+  `copilot -p "reply with ok" --model <id>`. The scheduler
   picks per-stage models from the `schedule` skill's routing table; to pin one
   model everywhere write `brain/principles/model-routing.md` (one row and "do not
   route to any other model"), which the skill reads first.
 - **Concurrency:** suggest 2 cooks and ask whether the user wants more (or 1,
   when cooks share an account or a service). `exclude_scheduler = true` keeps
-  the scheduler from taking a cook slot. Claude cooks need
-  `exit_after_turn = true`, or a session waits after its turn ends.
+  the scheduler from taking a cook slot. Claude and maki cooks need
+  `exit_after_turn = true` in their own `[agents.<provider>]` table, or a
+  session waits after its turn ends. codex, pi, pig and copilot cooks run
+  one-shot and exit on their own; they cannot be steered mid-turn.
 - **Delivery:** confirm push remote, PR repository and base branch, then write
   `[delivery]` with `push_remote`, `pr_repo`, `base`. Do not assume a fork.
 - **Review policy:** keep mode supervised. Ask which stages wait for an external
@@ -397,7 +409,7 @@ shape. Drop `[stages.adversarial-review]` when no kind uses that stage.
     not, so a `reject` on it never fires unless `system_prompt` (next bullet)
     adds that step.
 - **Per-stage cook and skill wrapping:** `[stages.<task>]` also takes `harness`
-  (`claude` or `codex`) and `model`, which replace the scheduler's choice on
+  (`claude`, `codex`, `pi`, `pig`, `maki` or `copilot`) and `model`, which replace the scheduler's choice on
   stages that have not started; `provider` (codex's `model_provider`, only with
   `harness = "codex"`); and `system_prompt`, text placed after the skill in the
   cook's system prompt so it can override one of the skill's instructions.
@@ -484,6 +496,26 @@ Codex; check its help for equivalents. The denials block blanket staging, also
 inside `&&` chains, but not `git add *`, so the skill rules in Step 4b still
 matter. The dispatcher requests `--permission-mode bypassPermissions`; do not
 infer effective permissions from arguments, use `/noodle-feed` Step 8.
+
+Other harnesses take their own `[agents.<provider>]` table (`path`, `args`,
+`exit_after_turn`, `inherit_env`). Check each CLI's `--help` before copying an
+argument across:
+
+- **maki** reads Claude's stream-json and runs with `--yolo`; it accepts
+  `--allowed-tools`/`--disallowed-tools` but not `--add-dir` or `--mcp-config`.
+- **pi / pig** run `-p --mode json` with the skill in `--append-system-prompt`.
+  Useful args: `--no-session`, `--tools`, `--no-mcp`, `--no-context-files`.
+- **copilot** runs `--output-format json --yolo` with the whole prompt, skill
+  included, on stdin. It fails auth when `GITHUB_TOKEN`, `GH_TOKEN` or
+  `COPILOT_GITHUB_TOKEN` holds a token without Copilot access. Ask whether to
+  set `[agents.copilot] inherit_env` to a list without them; say that the
+  cook's own `git`/`gh` commands then lose those tokens too.
+
+`inherit_env` in `[agents]` applies to every provider; a provider's own list
+replaces it. Unset inherits the whole environment. When set, cooks get the
+listed variables plus a base set (`PATH`, `HOME`, `USER`, `SHELL`, `TERM`,
+`TMPDIR`, `LANG`, `LC_*`); a trailing `*` matches a prefix. Ask which
+credential variables each harness needs before writing a list.
 
 ## Step 4: Ship the loop skills
 
@@ -662,7 +694,10 @@ the ones that apply.
 - Adapters: `bash -n` after every edit; a syntax error stops the loop.
 - Loop state: a loop runs only if a `noodle start` process exists, whatever
   `.noodle/status.json` says; restart only with no cook running; never
-  `noodle start --once` with orders queued.
+  `noodle start --once` with orders queued. To stop new work without killing
+  the loop, use `noodle pause` (or the sidebar button under Scheduler) or
+  `noodle drain`: both stop scheduling and dispatch while running cooks
+  finish. `noodle resume` restarts either.
 - Scheduling: ordering lines between items keep the scheduler to one order; a
   Reject reads as bad work, so say "cancelled" when that is meant.
 - Reviewer CLI: `adversarial-review` shells out to another model's CLI; when
