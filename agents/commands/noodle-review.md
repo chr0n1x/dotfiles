@@ -8,9 +8,11 @@ description: Guide the user through Noodle's review gate one order at a time.
   stops, then returns to the list. Also briefs stages parked for the user's
   decision against their source ticket. Use when the user says "noodle review",
   "send the reviews out", "what are these pending reviews", or a noodle loop has
-  items waiting.
+  items waiting. Also audits whether cooks follow the agreed pipeline in
+  brain/principles/pipeline.md ("noodle review audit", "are the cooks doing what
+  I think").
 user-invocable: true
-argument-hint: "[project path, default: pwd]"
+argument-hint: "[audit] [project path, default: pwd]"
 ---
 
 # Noodle Review
@@ -24,6 +26,54 @@ Work through what needs attention **one order (one cook's work) at a time**:
    order's stages to know which external stages are left; loop until none is.
 3. When the order is finished, or the user stops, refresh the list and let the
    user choose the next order or stop.
+
+With `audit` as the first argument, or when the user picks Audit in Step 2, run
+the audit below instead. It changes nothing in the loop.
+
+## Audit: are the cooks doing what the user expects
+
+The reference is `brain/principles/pipeline.md` (written by `/noodle-init`
+Step 2b). If it is missing, say so and offer to run that interview; there is
+nothing to audit against.
+
+1. **Pick the orders.** Default: every order completed or failed since the last
+   audit (the date at the top of `brain/audits/pipeline.md`, else the last 7
+   days), plus every running order. Sources: the snapshot
+   (`curl -s localhost:3000/api/snapshot`), `.noodle/order-work.json`,
+   `.noodle/sessions/*/` and `git log --all --oneline 'noodle/*'`.
+2. **Check each order, read-only,** against the kind its backlog line matches:
+   - Kind: which kind the scheduler chose, and whether the Match line agrees.
+   - Stages: the stages it ran against the kind's list (missing, extra,
+     reordered, wrong skill, wrong harness or model).
+   - Per stage: did the output named in the note exist (commits, plan file,
+     review file, `stage_message`)? Did its accept or reject follow the
+     criteria? Read the cook's final `result` in
+     `.noodle/sessions/<session>/raw.ndjson`, not only the status.
+   - Hand-offs: did the next stage read what the previous one produced?
+   - Finished product: does the artifact exist where the note says (PR link,
+     merge commit, `brain/` file)? For "nothing to publish", was that the
+     expected outcome for the kind?
+   - Human gates: did any order park where the note says the cook decides, or
+     move on where the note says the user decides?
+   - Scope: commits touching paths outside the item's Scope line.
+3. **Show one table,** one row per order, each row 120 characters or fewer:
+
+   | Order | Kind | Stages ok? | Product ok? | Deviation |
+   |---|---|---|---|---|
+
+   Under it, the deviations that repeat across orders, each with its likely
+   cause (the schedule prompt, a skill, a `[stages]` action, the item's
+   Done line, or the note itself being wrong) and one proposed fix. Say
+   "unverified" for anything you could not read.
+4. **Fixes only on approval.** Changes to `.noodle.toml`, the pipeline note or
+   backlog lines are the user's call; copied noodle skills are never
+   hand-patched (use `[stages.<task>] system_prompt` or a substitute skill, per
+   `/noodle-init` Step 4). A `.noodle.toml` change needs a loop restart, which
+   the user starts.
+5. **Record** the date, orders checked and agreed fixes at the top of
+   `brain/audits/pipeline.md` and link it from `brain/index.md`.
+
+The Turn rule applies to the summary; the table and Inspect may run longer.
 
 ## Turn rule
 
@@ -105,7 +155,7 @@ Both show in the UI Reviews tab (guide 3.2 "The two review queues"):
 ## Step 1: Read the config and build the attention list
 
 ```bash
-cd "${ARGUMENTS:-$(pwd)}" && grep -nE 'external_stages|extra_stages|publish_action|auto_verify_quality|max_rework|^mode|^\[stages\.|^accept|^reject|^\[hooks\]|^(before|after)(_each)? *=' .noodle.toml
+cd "$(printf '%s' "${ARGUMENTS:-.}" | sed 's/^audit *//; s/^$/./')" && grep -nE 'external_stages|extra_stages|publish_action|auto_verify_quality|max_rework|^mode|^\[stages\.|^accept|^reject|^\[hooks\]|^(before|after)(_each)? *=' .noodle.toml
 noodle order --help >/dev/null 2>&1 && echo "noodle order: available"
 noodle order --help 2>/dev/null | grep -q resolve && echo "noodle order resolve: available"
 noodle review list --json
@@ -162,9 +212,10 @@ Read titles and ticket keys from the snapshot and parked reasons from
 
 One table, one row per order that needs attention: id, ticket key and title,
 state, current stage, external stages left. Leave out RUNNING orders but name them
-in one line. Ask which order to work on, with a "stop" choice (use the `gate` or
-`question` tool, or a plain question). Do nothing for any order until the user
-chooses. If nothing needs attention, say so, name any RUNNING orders, and stop.
+in one line. Ask which order to work on, with "audit" and "stop" choices (use the
+`gate` or `question` tool, or a plain question). Do nothing for any order until
+the user chooses. If nothing needs attention, say so, name any RUNNING orders,
+and offer the audit or stop.
 
 ## Step 3: Decide what the chosen order needs now
 

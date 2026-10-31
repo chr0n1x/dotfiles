@@ -1,8 +1,10 @@
 ---
 name: noodle-init
 description: Set up Noodle (skill-based agent orchestration) for a project -
-  scaffolds .noodle/, .noodle.toml, the brain vault, backlog adapters, and the
-  loop skills from the vendored submodule. Use when the user says "init noodle",
+  interviews the user on the per-order pipeline (stages, goals, finished
+  product, publish), then scaffolds .noodle/, .noodle.toml, the brain vault,
+  backlog adapters, and the loop skills from the vendored submodule and the
+  user's own skills. Use when the user says "init noodle",
   "set up noodle", "start a noodle project", or asks to run noodle in this repo.
 user-invocable: true
 argument-hint: "[target repo path, default: pwd]"
@@ -10,7 +12,13 @@ argument-hint: "[target repo path, default: pwd]"
 
 # Noodle Init
 
-Set up Noodle for one project. The vendored checkout at `agents/tools/noodle` in the
+Set up Noodle for one project. The goal: the user later hands `/noodle-feed`
+a link, the items land in the backlog, and cooks take any order through the
+stages agreed here to a published result, stopping only at holds the user
+chose. Init gets there by interviewing the user on the pipeline (Step 2b)
+before it writes any config.
+
+The vendored checkout at `agents/tools/noodle` in the
 dotfiles repo (NOD) is the source for skills and adapters: copy them, never hand-patch the
 copies. A change every project needs goes into the plugin source and is copied
 again; project-specific rules live in `brain/principles/`.
@@ -32,11 +40,21 @@ cd "$TARGET" && git rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
   { echo "not a git repo"; exit 1; }
 ```
 
-Use the repository root as TARGET. Set
-`NOD="$(dirname "$(readlink -f ~/.claude/commands/noodle-init.md)")/../tools/noodle"`
-(this command file lives in the repo's `agents/commands/`) and check
-`$NOD/.agents/skills/schedule/SKILL.md` exists; if not, ask for the dotfiles repo
-path. Do not initialize or update a submodule without permission.
+Use the repository root as TARGET. Derive every dotfiles path from this command
+file, never from a hardcoded home path. Take the path the harness loaded this
+file from (a `commands/noodle-init.md` or `skills/noodle-init/SKILL.md` link)
+and resolve it with `readlink -f`; the real file lives in `<agents>/commands/`:
+
+```bash
+SELF="$(readlink -f "<path this file was loaded from>")"
+AGENTS="$(cd "$(dirname "$SELF")/.." && pwd -P)"
+NOD="$AGENTS/tools/noodle"
+USER_SKILLS="$AGENTS/skills"
+```
+
+Check `$NOD/.agents/skills/schedule/SKILL.md` and `$USER_SKILLS` exist; if not,
+ask for the agents directory. Do not initialize or update a submodule without
+permission.
 
 Read project instructions and inventory existing `.noodle.toml`, brain, skills
 and adapters. On a rerun, show proposed changes and ask before overwriting;
@@ -149,6 +167,66 @@ them, and change `NOODLE_TODOS_FILE:-todos.md` to
 backlog. After any adapter edit run `bash -n adapters/<name>`: a syntax error
 stops the whole loop at the next backlog sync.
 
+## Step 2b: Interview the pipeline
+
+Ask about outcomes before validation steps. Read an existing
+`brain/principles/pipeline.md` first and ask only what changed. One topic per
+question, in this order:
+
+1. **Kinds of work.** What will the user feed in (bug fix, feature, docs,
+   investigation, dependency bump, ...)? Each kind may get its own stage list.
+2. **Finished product per kind.** What exists when an order is done: a draft
+   PR, a pushed branch, a merge into the local integration branch, a report or
+   diagnosis in `brain/`, a drafted tracker comment? Who looks at it next?
+3. **Stages per kind, in order.** For each stage:
+   - skill (Step 4 lists noodle's and the user's; a stage may use either),
+   - goal in one sentence: what this stage is for, not how it validates,
+   - input it reads and output it hands to the next stage (commits, a plan in
+     `brain/plans/`, a review file, a `stage_message`),
+   - accept and reject: what counts as each, and what happens on reject
+     (`retry`, `retry-previous`, `park`, `exit`; Step 3 "Stage outcomes"),
+   - who decides: the cook by itself, an external hold, or the user,
+   - harness and model when it should not be the scheduler's choice.
+4. **Hooks.** Anything that runs before or after every order or every stage.
+5. **Publish.** One `publish_action` serves the whole project (`draft-pr`
+   builtin, a skill, or unset for a local merge). If kinds need different
+   endings, express the difference as stages (for example a report kind whose
+   last stage writes to `brain/` and leaves no commits, so it closes with
+   nothing to publish).
+6. **Autonomy.** Which stages may move on without the user. Supervised mode
+   parks every stage with changes unless `[stages.<task>] accept = "promote"`;
+   `mode = "auto"` promotes and publishes by itself. Agree which the user
+   wants and where the remaining human gates sit.
+
+Write `brain/principles/pipeline.md` (no frontmatter, about 60 lines) and
+add it to the index. `/noodle-review` audits cooks against it, so make each
+stage checkable:
+
+```markdown
+# Pipeline
+
+Publish: <publish_action and what it produces>
+Autonomy: <mode; human gates>
+
+## <kind>
+Match: <name used in the backlog item's `Kind:` field; other hints such as source or title prefix>
+Finished: <the artifact and where it lives>
+1. <skill> - <goal>. In: <input>. Out: <output>. Accept: <criteria>. Reject: <criteria> -> <action>. Decided by: <cook|hold|user>.
+2. ...
+```
+
+The scheduler builds every order's stages, and its `schedule` skill does not
+read this note on its own. Step 3 adds `[stages.schedule] system_prompt`
+pointing it here. Whether `[stages.schedule]` reaches the scheduler session is
+unverified: after the first loop start, check the scheduler's prompt under
+`.noodle/sessions/schedule-*/` for the text. If it is missing, offer the
+user's own `schedule` skill (Step 4 substitution) that reads the note first.
+
+The stages the user picks drive Step 3: `[review]` (extra and external stages,
+publish), `[stages.<task>]` (outcomes, harness, model, system prompts) and
+`[hooks]`. Where a choice does not fit noodle's keys, say so plainly and
+agree a workaround; do not drop it silently.
+
 ## Step 3: Write .noodle.toml
 
 Show the user the proposed config before writing anything. Start from these
@@ -167,7 +245,7 @@ provider = "claude"
 model = "<confirmed model>"
 
 [skills]
-paths = [".agents/skills"]
+paths = [".agents/skills", "<absolute $USER_SKILLS>"]
 
 [adapters.backlog]
 skill = "todo"
@@ -186,6 +264,7 @@ exclude_scheduler = true
 exit_after_turn = true
 args = [
   "--add-dir", "<absolute repo>/brain",
+  "--add-dir", "<absolute $AGENTS>",
   "--strict-mcp-config", "--mcp-config", "<absolute repo>/brain/agent-mcp.json",
   "--disallowedTools",
   "Bash(git add -A*)", "Bash(git add --all*)",
@@ -233,9 +312,17 @@ After Step 5, end the stage with exactly one stage_message, decided by your Lead
   noodle event emit --session $NOODLE_SESSION_ID stage_message --payload '{"message": "<summary>", "blocking": false}'
 """
 
+[stages.schedule]
+system_prompt = """
+Before scheduling, read brain/principles/pipeline.md. Match each backlog item to one kind by its `Kind:` field, else by the kind's Match line, and build the order's stages exactly as that kind lists them, with each stage's goal, input, output and accept criteria in its extra_prompt. When no kind matches, use the default pipeline from your skill and say so in the order rationale.
+"""
+
 [hooks]
 after = ["reflect"]
 ```
+
+Every table below comes from the Step 2b answers; the template only shows the
+shape. Drop `[stages.adversarial-review]` when no kind uses that stage.
 
 - **Provider and model:** `claude` or `codex`. Verify the model before writing it
   (`claude -p --model <id> "reply with ok"`; ask before paid calls). The scheduler
@@ -400,13 +487,43 @@ infer effective permissions from arguments, use `/noodle-feed` Step 8.
 
 ## Step 4: Ship the loop skills
 
-Copy these 16 whole directories from `$NOD/.agents/skills/` into
-`$TARGET/.agents/skills/`: `adversarial-review`, `brain`, `commit`, `execute`,
-`meditate`, `oops`, `plan`, `quality`, `refine`, `reflect`, `ruminate`,
-`schedule`, `todo`, `testing`, `worktree`, `noodle`.
+Skills come from two places, searched in `skills.paths` order, first match
+wins:
 
-Copies, not symlinks: a source change must not silently change a project's loop,
-and a Claude reviewer cannot follow a link out of its allowed directories. On a
+1. `$TARGET/.agents/skills/`: copies of noodle's skills from
+   `$NOD/.agents/skills/`, pinned per project.
+2. `$USER_SKILLS`: the user's own skills, read live. An edit there reaches the
+   next cook in every project that lists it. Claude cooks read them through
+   the `--add-dir <absolute $AGENTS>` grant (skill links point into
+   `$AGENTS/commands/`, so grant `$AGENTS`, not only `$USER_SKILLS`).
+
+List both sets (`ls "$NOD/.agents/skills" "$USER_SKILLS"`) next to the skills
+the Step 2b pipeline names, and mark names present in both. Default copy set:
+`adversarial-review`, `brain`, `commit`, `execute`, `meditate`, `oops`, `plan`,
+`quality`, `refine`, `reflect`, `ruminate`, `schedule`, `todo`, `testing`,
+`worktree`, `noodle`, plus any other noodle skill the pipeline names. Ask, per
+name present in both, which one the cooks use:
+
+- **Noodle's:** copy it into `.agents/skills/`; it shadows the user's.
+- **The user's (substitute):** do not copy it; the user's resolves. If an
+  earlier init copied it, remove the copy only after the user agrees.
+
+A substitute for a loop skill must keep noodle's contract, or the loop breaks
+quietly. Before agreeing, read the user's skill and say which of these it
+lacks: `schedule` (frontmatter `schedule:` field, writes
+`.noodle/orders-next.json`), `execute` (`stage_yield`, `NO CHANGE NEEDED:` and
+`UNVERIFIED:` outcomes), `quality` and any stage with a `reject` action (ends
+with a `stage_message`, blocking on reject), `reflect` (`stage_yield`), `todo`
+(the `brain/todos.md` format the adapters parse). Skills used only as stages
+or hooks need just the `stage_message` rule when they decide accept or reject.
+
+`publish_action = "draft-pr"` always runs noodle's builtin publish code, never
+a skill of that name; the user's `draft-pr` skill is unused as a publish
+action.
+
+Copies, not symlinks, for `.agents/skills`: a source change must not silently
+change a project's loop, and a Claude reviewer cannot follow a link out of its
+allowed directories. The user's skills are the deliberate exception. On a
 resync, `diff -rq "$NOD/.agents/skills" "$TARGET/.agents/skills"`, show each
 difference and copy only with approval. The source skills already carry the
 generic rules: staging by explicit path (`commit`, `worktree`); running every
@@ -557,7 +674,8 @@ the ones that apply.
 
 ## Step 6b: Verify
 
-Run `noodle skills list` (all 16 present) and, if supported,
+Run `noodle skills list` and check that every skill `brain/principles/pipeline.md`
+names resolves from the source agreed in Step 4 (copy or the user's), and, if supported,
 `noodle schema mise >/dev/null` as a schema check (not config validation). Check
 adapter executability and paths, `diff -rq` of the skills, config arguments and
 links, credential permissions without values, dependency versions and service
@@ -569,8 +687,9 @@ cooks and leave them orphaned and unlogged.
 
 ## Step 7: Report
 
-One line each: binary and source commit and capability gaps; skills and any
-difference from the source; adapters and todos path; model, concurrency and
+One line each: binary and source commit and capability gaps; the pipeline kinds
+and their stages; skills copied, skills substituted by the user's and any
+contract gaps found; adapters and todos path; model, concurrency and
 scheduler policy; delivery and `[review]` values; `[stages.<task>]` actions,
 harness/model and whether a `system_prompt` wraps the skill, with the reviewer
 CLI's auth and smoke-test result; `[hooks]` values; MCP servers and directory

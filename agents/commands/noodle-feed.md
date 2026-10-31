@@ -1,18 +1,18 @@
 ---
 name: noodle-feed
-description: Feed a task source (e.g. Jira epic, project, github project,
-  issue links, trello board, etc) into a Noodle project's backlog -
-  decomposes it into actionable items, refines each with the user, and
-  writes them to brain/todos.md. Use when the user says "feed the epic",
-  "add this epic to noodle", "queue up PROJ-123", or points an agent at
-  an epic for the noodle loop.
+description: Feed any task source (a link to a Jira epic or issue, GitHub
+  issue/PR/project, Trello board, doc, or pasted text) into a Noodle
+  project's backlog - decomposes it into actionable items, tags each with its
+  pipeline kind, refines them with the user, and writes them to
+  brain/todos.md. Use when the user says "feed the epic", "add this to
+  noodle", "queue up PROJ-123", or hands over a link for the noodle loop.
 user-invocable: true
-argument-hint: "[epic key, tracker URL or path to epic text]"
+argument-hint: "[link, tracker key, or path to task text]"
 ---
 
 # Noodle Feed
 
-Turn an epic into refined, self-contained items in `brain/todos.md` that the
+Turn a task source (an epic, an issue, a doc, pasted text) into refined, self-contained items in `brain/todos.md` that the
 noodle loop can schedule on its own.
 
 ## Step 1: Resolve the project
@@ -23,19 +23,25 @@ The target is the cwd or the argument's repo. If `$TARGET/.noodle.toml` or
 ## Step 2: Read the brain
 
 Read `brain/index.md`, `brain/todos.md` (`next-id`, sections, what is queued),
-`brain/codebase/task-sources.md` (how this project reaches its sources) and
-`brain/principles/verification.md`.
+`brain/codebase/task-sources.md` (how this project reaches its sources),
+`brain/principles/verification.md` and `brain/principles/pipeline.md` (the
+kinds of work, their stages and finished product). Without a pipeline note,
+say so and suggest `/noodle-init` Step 2b; items then go to the scheduler's
+default pipeline.
 
-## Step 3: Get the epic
+## Step 3: Get the source
 
-The argument is a tracker reference (a Jira key or browse URL, a GitHub issue
-or PR URL, a Trello card) or a path to task text.
+The argument is a link, a tracker key, or a path to task text. It may be a
+single issue rather than an epic; then it becomes one item (or a few, if it
+holds more than one logical change).
 
-Normalize it before touching any tool. Do not open a tracker URL with a web
-fetch (it needs the user's login) and do not pass a URL to a CLI:
+Identify the source type from its shape, then reach it the way
+`task-sources.md` records for that type. Do not open a tracker URL with a web
+fetch (it needs the user's login) and do not pass a URL to a CLI unless the
+CLI documents URL arguments (`gh issue view <url>` does):
 
-- A Jira reference is a key matching `[A-Z][A-Z0-9]+-[0-9]+`, alone or in a URL
-  such as `https://<host>/browse/PROJ-123`
+- **Jira:** a key matching `[A-Z][A-Z0-9]+-[0-9]+`, alone or in a URL such as
+  `https://<host>/browse/PROJ-123`
   (`grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -1`). The project is the part
   before the dash.
 - Read it: `jira issue view <KEY> --plain`.
@@ -44,9 +50,14 @@ fetch (it needs the user's login) and do not pass a URL to a CLI:
   Harness, `parent = <KEY>` returns nothing; if `Epic Link` also returns
   nothing, ask which field links children.
 - If a URL's host differs from the one in `task-sources.md`, say so and ask.
-- Any other tracker: use the method recorded in `task-sources.md`. If none is
-  recorded or it no longer works, ask the user how to reach it.
-- A path: read the file.
+- **GitHub:** an issue, PR or project URL, or `owner/repo#N`. Read it with
+  `gh issue view`, `gh pr view` or `gh project item-list`; sub-issues and task
+  lists in the body are the children.
+- **Any other link or tracker:** use the method recorded in `task-sources.md`.
+  If none is recorded or it no longer works, ask the user how to reach it (a
+  CLI, an MCP server, or pasting the text). A public page with no login may be
+  fetched only after the user says it is public.
+- A path: read the file. Pasted text: use it as given.
 
 After a successful fetch from a new source or a changed method, update
 `task-sources.md` (source, method, credential env var name never its value,
@@ -56,6 +67,13 @@ scope, a verified command) and `brain/index.md`.
 
 Each item must be actionable by an agent that has never seen the epic: what to
 change, where, and what done looks like. One logical change per item.
+
+Give every item a kind from `brain/principles/pipeline.md`, matched by the
+kind's Match line. The kind decides the stages the scheduler builds and what
+the finished product is, so the item's Done line must describe that product
+(for example "a draft PR with ...", or "a diagnosis in
+`brain/<tracker>/<KEY>.md`, no commits"). When no kind fits, say so and ask:
+add a kind to the note, or use the closest one.
 
 Check verification before proposing items. Reuse
 `brain/principles/verification.md` and ask only what changed: the exact test,
@@ -87,6 +105,7 @@ never hand-patched.
 Show the full proposed list with descriptions. Resolve, in one grouped round:
 
 - Items already done or out of scope.
+- The kind of each item.
 - Vague Done criteria, or criteria that contradict the verification note.
 - The `## Section` each item goes under.
 - Scope: which paths each item may edit and which are off-limits (for example
@@ -107,8 +126,8 @@ Per the `todo` skill's format:
 
 1. Read `<!-- next-id: N -->`.
 2. Append each approved item as one line under its section:
-   `N. [ ] <description> Scope: <allowed / off-limits paths> Done: <criteria> Commit: stage only files you created or edited, by path; never add -A/./*. [url: <source link>]`
-   Scope, Done and Commit go on the item line: a cook sees only its own line,
+   `N. [ ] <description> Kind: <kind> Scope: <allowed / off-limits paths> Done: <criteria> Commit: stage only files you created or edited, by path; never add -A/./*. [url: <source link>]`
+   Kind, Scope, Done and Commit go on the item line: a cook sees only its own line,
    and `backlog-sync` reads one line per item. `[url: ...]` is the item's
    source as a full `https://` address: for Jira, `https://<host>/browse/<KEY>`
    with the host recorded in `brain/codebase/task-sources.md`; for GitHub, the
@@ -133,11 +152,11 @@ Per the `todo` skill's format:
    backticks and `$` get mangled there.
 5. Re-read the file: each new item is one line with balanced backticks, every
    `brain/<tracker>/<KEY>.md` path is complete and ends in a single `.md`, and
-   Scope, Done and Commit are present. Fix and re-read until they are.
+   Kind, Scope, Done and Commit are present. Fix and re-read until they are.
 
 ## Step 7: Report
 
-- Item count and ids (`#3 - ..., #4 - ...`).
+- Item count and ids with their kind (`#3 bugfix - ..., #4 report - ...`).
 - Tracker comments cooks will write to `brain/<tracker>/<KEY>.md` for the user to
   post.
 - Verification note changes and any precondition added.

@@ -21,21 +21,43 @@ generalizable bits survive it.
 TARGET="${ARGUMENTS:-$(pwd)}"
 cd "$TARGET" || exit 1
 [ -d brain ] || { echo "no brain/ vault here - run /noodle-init first"; exit 1; }
-VAULT="${OBSIDIAN_VAULT_PATH/#\~/$HOME}"
-[ -n "$OBSIDIAN_VAULT_PATH" ] || { echo "OBSIDIAN_VAULT_PATH is not set"; exit 1; }
-[ -d "${VAULT}/.obsidian" ] || { echo "${VAULT} is not a valid vault (no .obsidian/)"; exit 1; }
+echo "OBSIDIAN_VAULT_PATH=${OBSIDIAN_VAULT_PATH:-<unset>}"
 ```
 
 The global vault is wherever `$OBSIDIAN_VAULT_PATH` points - the same var
-the `obsidian-read` / `obsidian-create` / `obsidian-update` skills use. Do
-not hardcode a path.
+the `obsidian-*` skills use. Do not hardcode a path. The variable is often
+unset in an agent's shell even when the user's interactive shell has it. When
+it is unset, ask the user for the vault path (offer any `.obsidian/` parent
+found with `find ~ -maxdepth 4 -type d -name .obsidian 2>/dev/null`, as
+options only). Then check it:
+
+```bash
+VAULT="<answer, with a leading ~ expanded to $HOME>"
+[ -d "$VAULT/.obsidian" ] || { echo "$VAULT is not a vault (no .obsidian/)"; exit 1; }
+```
+
+Prefix every `obsidian-*` skill call and shell command in this run with
+`OBSIDIAN_VAULT_PATH="$VAULT"` (each Bash call is a fresh shell, so an
+`export` does not carry over). Tell the user once to export it in their shell
+profile.
 
 ## Step 2: Survey the project brain
 
-Read `brain/index.md`, then `brain/codebase/`, `brain/principles/`, and
-`brain/audits/`. Skip `brain/plans/` and `brain/todos.md` - those are
-project-transient by definition (a finished plan and a done backlog item are
-history, not reusable knowledge).
+List everything first: `find brain -name '*.md' -not -path 'brain/plans/*'
+-not -path 'brain/archive/*' | sort`. Read `brain/index.md`, then every
+listed file except `brain/todos.md`. Noodle's `reflect` and `meditate` hooks
+write to more places than `codebase/` and `principles/` (for example
+`reviews/`, `delegation/`, `audits/`, topic folders of their own), so do not
+limit the survey to a fixed folder list. Skip `brain/plans/`, `brain/archive/`
+and `brain/todos.md` - those are project-transient by definition (a finished
+plan and a done backlog item are history, not reusable knowledge). Review
+files under `brain/reviews/` are per-order; mine them only for findings that
+repeat across orders.
+
+Also check what the user taught the loop: a project-local `.agents/skills/`
+that differs from the noodle copy (`diff -rq`), or a
+`[stages.<task>] system_prompt` in `.noodle.toml`. List those as candidates
+too.
 
 ## Step 3: Distill - the judgment
 
