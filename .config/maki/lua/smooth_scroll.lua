@@ -1,11 +1,10 @@
--- Smooth, inertial transcript scrolling in normal mode. <C-u>/<C-d> glide
--- a half page with a fast-start, slow-stop ease-out; a new press in the same
--- direction retargets the glide (hold to keep going), an opposite press
--- stops it.
+-- Smooth, inertial transcript scrolling. <C-u>/<C-d> glide a half page with
+-- a fast-start, slow-stop ease-out; a new press in the same direction
+-- retargets the glide (hold to keep going), an opposite press stops it.
 --
--- Only control chars are bound: maki.keymap.set has no mode gating in
--- practice (keymap.rs:393), so a letter binding would swallow that letter
--- while typing in insert mode.
+-- Bound in both "n" and "i": maki 0.7.0 fires an "n" binding only in normal
+-- mode, and "i" is the mode while typing in the chat input. Both keys replace
+-- maki's built-in half-page jump and type no text.
 
 local TICK_MS = 16 -- ~60 fps
 local TAPS = 28 -- glide duration in ticks (~0.45s); more = longer, gentler
@@ -86,6 +85,6 @@ local function start_glide(dir)
   end)
 end
 
-maki.keymap.set("n", "<C-u>", function() start_glide(-1) end, { desc = "Smooth scroll up" })
-maki.keymap.set("n", "<C-d>", function() start_glide(1) end, { desc = "Smooth scroll down" })
+maki.keymap.set({ "n", "i" }, "<C-u>", function() start_glide(-1) end, { desc = "Smooth scroll up" })
+maki.keymap.set({ "n", "i" }, "<C-d>", function() start_glide(1) end, { desc = "Smooth scroll down" })
 maki.log.info("smooth_scroll: keymaps registered")
