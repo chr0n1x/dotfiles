@@ -1,9 +1,10 @@
 ---
 name: create
-description: Checkpoints for writing code, docs, PR text and reports.
-  Use before adding a type, function, flag or config, and before saying
-  a change is fixed or done, or when stating facts about code, infra or
-  AWS.
+description: Checkpoints for writing code, comments, docs, PR text and
+  reports. Use before writing or editing any of them (even a one-line
+  comment), when the user says "my style", before adding a type,
+  function, flag or config, before saying a change is fixed or done, or
+  when stating facts about code, infra or AWS.
 user-invocable: true
 ---
 
