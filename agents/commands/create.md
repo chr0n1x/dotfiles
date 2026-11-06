@@ -50,7 +50,10 @@ Two checkpoints. Each step is mechanical: do it, then continue.
 5. **Style pass** on all outgoing text: answer first, no recap, no
    offers, no emdashes, no emojis, fewest words that keep the facts.
    Keep lines under 80 chars in code, comments and docs, unless a linter
-   rule or auto-formatter says otherwise. Reply: 3 sentences. PR
+   rule or auto-formatter says otherwise. Separate logical steps inside a
+   function with one blank line (setup, loop, logging, return), and give
+   each guard or early-return block its own paragraph, even when the
+   surrounding file is dense. Reply: 3 sentences. PR
    description: use `draft-pr`, and keep each paragraph, bullet and list
    item on one line (GitHub renders every newline as a line break).
 6. **Write for a reader with no editor.** Comments, docs and PR text
