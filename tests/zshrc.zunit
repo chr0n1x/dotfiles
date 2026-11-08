@@ -1,55 +1,110 @@
 #!/usr/bin/env zunit
 
-# --- llama-cpp model discovery -------------------------------------------
+# --- inference-server model discovery -------------------------------------------
 #
-# ~/.config/zsh/scripts/llama-cpp.sh caches the server's model id and exports
-# LLAMA_DEFAULT_MODEL, CLAUDE_MODEL and MAKI_MODEL. LLAMA_CACHE_DIR points the
-# cache at a scratch dir so the tests never touch the real one, and curl is
+# ~/.config/zsh/scripts/llm.sh caches the server's model id and exports
+# LLAMA_DEFAULT_MODEL, MAKI_MODEL and STRATA_BASE_URL. LLM_CACHE_DIR points
+# the cache at a scratch dir so the tests never touch the real one, and curl is
 # replaced with a function that echoes a fixture response.
+#
+# MAKI_MODEL carries a provider slug because maki -m takes a full
+# provider/model-id spec.
 
-@test 'llama-cpp.sh reads the model id from an OpenAI-shaped response' {
+@test 'llm.sh reads the model id from an OpenAI-shaped response' {
   local dir
   dir=$(mktemp -d)
-  run env LLAMA_CACHE_DIR="$dir" LLAMA_BASE_URL="http://127.0.0.1:8000/v1" zsh -c '
+  run env LLM_CACHE_DIR="$dir" LLM_OPENAI_API_HOST="http://127.0.0.1:8000" zsh -c '
     curl() { print "{\"object\":\"list\",\"data\":[{\"id\":\"qwen3.8-flash-next-q2_0\"}]}"; }
-    source /app/.config/zsh/scripts/llama-cpp.sh
-    print "llama=$LLAMA_DEFAULT_MODEL claude=$CLAUDE_MODEL maki=$MAKI_MODEL"
+    source /app/.config/zsh/scripts/llm.sh
+    print "llama=$LLAMA_DEFAULT_MODEL maki=$MAKI_MODEL"
   '
-  assert "$output" same_as "llama=qwen3.8-flash-next-q2_0 claude=qwen3.8-flash-next-q2_0 maki=llama-cpp/qwen3.8-flash-next-q2_0"
+  assert "$output" same_as "llama=qwen3.8-flash-next-q2_0 maki=strata/qwen3.8-flash-next-q2_0"
   cd / && rm -rf "$dir"
 }
 
-@test 'llama-cpp.sh falls back to the Ollama-shaped response' {
+@test 'llm.sh falls back to the Ollama-shaped response' {
   local dir
   dir=$(mktemp -d)
-  run env LLAMA_CACHE_DIR="$dir" LLAMA_BASE_URL="http://127.0.0.1:8000/v1" zsh -c '
+  run env LLM_CACHE_DIR="$dir" LLM_OPENAI_API_HOST="http://127.0.0.1:8000" zsh -c '
     curl() { print "{\"models\":[{\"name\":\"unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL\"}]}"; }
-    source /app/.config/zsh/scripts/llama-cpp.sh
+    source /app/.config/zsh/scripts/llm.sh
     print "$LLAMA_DEFAULT_MODEL $MAKI_MODEL"
   '
-  assert "$output" same_as "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL llama-cpp/unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL"
+  assert "$output" same_as "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL strata/unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL"
   cd / && rm -rf "$dir"
 }
 
-@test 'llama-cpp.sh builds /v1/models from a bare LLAMACPP_HOST' {
+@test 'llm.sh takes the maki provider slug from MAKI_PROVIDER' {
   local dir
   dir=$(mktemp -d)
-  run env LLAMA_CACHE_DIR="$dir" LLAMACPP_HOST="http://127.0.0.1:8000" zsh -c '
-    curl() { print "url=$1"; }
-    source /app/.config/zsh/scripts/llama-cpp.sh
+  run env LLM_CACHE_DIR="$dir" LLM_OPENAI_API_HOST="http://127.0.0.1:8000" MAKI_PROVIDER=ollama zsh -c '
+    curl() { print "{\"data\":[{\"id\":\"qwen3.8-flash-next-q2_0\"}]}"; }
+    source /app/.config/zsh/scripts/llm.sh
+    print "$MAKI_MODEL"
   '
-  assert "$output" same_as "url=http://127.0.0.1:8000/v1/models"
+  assert "$output" same_as "ollama/qwen3.8-flash-next-q2_0"
   cd / && rm -rf "$dir"
 }
 
-@test 'llama-refresh reports failure and keeps the previous model' {
+# maki appends /chat/completions but not /v1, and reads STRATA_BASE_URL ahead
+# of providers.toml, so the exported value has to carry the /v1 suffix.
+@test 'llm.sh exports STRATA_BASE_URL with the /v1 suffix' {
   local dir
   dir=$(mktemp -d)
-  run env LLAMA_CACHE_DIR="$dir" LLAMA_BASE_URL="http://127.0.0.1:8000/v1" zsh -c '
+  run env LLM_CACHE_DIR="$dir" LLM_OPENAI_API_HOST="http://127.0.0.1:8000" zsh -c '
+    curl() { print "{\"data\":[{\"id\":\"qwen3.8-flash-next-q2_0\"}]}"; }
+    source /app/.config/zsh/scripts/llm.sh
+    print "$STRATA_BASE_URL"
+  '
+  assert "$output" same_as "http://127.0.0.1:8000/v1"
+  cd / && rm -rf "$dir"
+}
+
+@test 'llm.sh derives STRATA_BASE_URL from LLM_OPENAI_API_HOST' {
+  local dir
+  dir=$(mktemp -d)
+  run env LLM_CACHE_DIR="$dir" LLM_OPENAI_API_HOST="http://127.0.0.1:8000" zsh -c '
+    curl() { print "{\"data\":[{\"id\":\"qwen3.8-flash-next-q2_0\"}]}"; }
+    source /app/.config/zsh/scripts/llm.sh
+    print "$STRATA_BASE_URL"
+  '
+  assert "$output" same_as "http://127.0.0.1:8000/v1"
+  cd / && rm -rf "$dir"
+}
+
+@test 'llm.sh leaves STRATA_BASE_URL unset without a server' {
+  local dir
+  dir=$(mktemp -d)
+  run env LLM_CACHE_DIR="$dir" zsh -c '
+    curl() { print "{}"; }
+    source /app/.config/zsh/scripts/llm.sh
+    print "${STRATA_BASE_URL-UNSET}"
+  '
+  assert "$output" same_as "UNSET"
+  cd / && rm -rf "$dir"
+}
+
+@test 'llm.sh builds /v1/models from LLM_OPENAI_API_HOST' {
+  local dir
+  dir=$(mktemp -d)
+  # _llm_fetch captures curl's stdout as the model id, so the stub records the url
+  # in a file and hands jq a payload it accepts.
+  run env LLM_CACHE_DIR="$dir" LLM_URL_LOG="$dir/url" LLM_OPENAI_API_HOST="http://127.0.0.1:8000" zsh -c '
+    curl() { print "$4" > "$LLM_URL_LOG"; print "{\"data\":[{\"id\":\"m\"}]}"; }
+    source /app/.config/zsh/scripts/llm.sh
+  '
+  assert "$(cat "$dir/url") $(cat "$dir/model")" same_as "http://127.0.0.1:8000/v1/models m"
+  cd / && rm -rf "$dir"
+}
+
+@test 'llm-refresh reports failure and keeps the previous model' {
+  local dir
+  dir=$(mktemp -d)
+  run env LLM_CACHE_DIR="$dir" LLM_OPENAI_API_HOST="http://127.0.0.1:8000" zsh -c '
     curl() { print "{\"error\":\"unavailable\"}"; }
-    source /app/.config/zsh/scripts/llama-cpp.sh
-    llama-refresh
-    print "rc=$? llama=$LLAMA_DEFAULT_MODEL cache=$(cat "$LLAMA_CACHE_DIR/model" 2>/dev/null)"
+    source /app/.config/zsh/scripts/llm.sh
+    llm-refresh
+    print "rc=$? llama=$LLAMA_DEFAULT_MODEL cache=$(cat "$LLM_CACHE_DIR/model" 2>/dev/null)"
   '
   assert "$output" same_as "rc=1 llama= cache="
   cd / && rm -rf "$dir"
