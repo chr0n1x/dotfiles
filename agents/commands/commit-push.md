@@ -16,12 +16,13 @@ them. Follow the current text step by step.
 
 ## Step 1: Gather context
 
-1. Read the project's `MEMORY.md` if it exists (check `project/memory/` and project root) for commit conventions, push rules, branch naming.
-2. If no MEMORY.md, read `CLAUDE.md` for commit style hints.
-3. If the branch has an open PR, run `gh pr view --json baseRefName,headRefName,headRefOid,url`. Check `git remote -v` and branch upstreams, but do not infer stack membership or the canonical push remote from upstream config alone.
-4. Check that the extension is installed: `gh stack --help >/dev/null 2>&1`. If it fails, tell the user `gh stack` is not installed (`gh extension install github/gh-stack`), that stack membership could not be checked, and that the branch is being treated as non-stack only for that reason. Ask whether to continue or install first. Do not fall back silently.
-5. If `gh stack` is installed and the PR or branch may be in a stack, use the `gh-stack` skill. Run `gh stack view --json`. "Not in a stack" or local-only tracking does not prove there is no remote stack; run `gh stack checkout <PR-number-or-URL>` to import the remote stack, then `gh stack view --json` again. Take the canonical remote from the PR and stack metadata.
-6. If none of the above gives conventions, use the defaults in Step 4.
+1. Check memory for commit conventions, push rules, branch naming.
+2. Read the system prompt for commit style hints.
+3. Read the repository rules and commit history for commit style hints; prioritize these and note when you're using these styles over the previous two.
+4. If the branch has an open PR, run `gh pr view --json baseRefName,headRefName,headRefOid,url`. Check `git remote -v` and branch upstreams, but do not infer stack membership or the canonical push remote from upstream config alone.
+5. Check that the extension is installed: `gh stack --help >/dev/null 2>&1`. If it fails, tell the user `gh stack` is not installed (`gh extension install github/gh-stack`), that stack membership could not be checked, and that the branch is being treated as non-stack only for that reason. Ask whether to continue or install first. Do not fall back silently.
+6. If `gh stack` is installed and the PR or branch may be in a stack, use the `gh-stack` skill. Run `gh stack view --json`. "Not in a stack" or local-only tracking does not prove there is no remote stack; run `gh stack checkout <PR-number-or-URL>` to import the remote stack, then `gh stack view --json` again. Take the canonical remote from the PR and stack metadata.
+7. If none of the above gives conventions, use the defaults in Step 4.
 
 ## Step 2: Gather changes
 
