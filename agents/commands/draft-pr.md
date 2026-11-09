@@ -1,155 +1,141 @@
 ---
 name: draft-pr
-description: Open a draft pull request for the current branch using the repo's PR template. Use when asked to open, create or draft a PR.
+description: Open a draft pull request for the current branch using the repo's PR template, or rewrite an existing PR's description. Use when asked to open, create or draft a PR, or to update, fix or rewrite a PR description.
 user-invocable: true
 allowed-tools: Bash(git:*), Bash(gh pr:*), Bash(gh repo:*), Read, Write
 ---
 
 # Draft PR
 
-Opens a draft PR from the current branch. The body follows the repo's PR template and the rules below.
+Opens a draft PR from the current branch, or rewrites an existing PR's description. The body follows the repo's PR template and the rules below.
 
 ## Before opening
 
-1. **Branch.** Run `git branch --show-current` and `git status --short`. Refuse to open from the default branch. If there are uncommitted changes, ask whether they belong in the PR; do not commit without being asked.
-2. **Base.** Default branch: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`. If the branch sits on another PR's branch (`git log --oneline <default>..HEAD` shows commits that belong to a parent PR), ask which base to use. If the branch is part of a stack, use `gh-stack` to push and create the PR; this skill then supplies only the title and body.
-3. **Checks.** Run the checks the repo documents for the touched modules (look in `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `README`, `Makefile`, then CI config). If none are documented, say so and ask. Report only what was run.
-4. **Docs.** If the change alters structure, commands or conventions, the relevant docs (`AGENTS.md`, `README`, feature docs) must be in the diff.
+1. **Branch.** Run `git branch --show-current` and `git status --short`. Refuse to open from the default branch. Ask whether uncommitted changes belong in the PR; never commit unasked.
+2. **Base.** Default branch: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`. If `git log --oneline <default>..HEAD` shows a parent PR's commits, ask which base to use. In a stack, push and create with `gh-stack`; this skill then supplies only the title and body.
+3. **Checks.** Run the checks the repo documents (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `README`, `Makefile`, then CI config). If none are documented, say so and ask. Report only what was run.
+4. **Docs.** If the change alters structure, commands or conventions, the docs that describe them are in the diff.
 
 ## Push
 
-Pick the remote in this order: one the repo's `AGENTS.md` or `CLAUDE.md` names; the only remote if there is one; otherwise ask. Do not assume `origin`. Check with `git remote -v` and `gh repo set-default --view`; `origin` may be a personal fork.
+Use the remote the repo's `AGENTS.md` or `CLAUDE.md` names, else the only remote, else ask. Never assume `origin`; it may be a fork (`git remote -v`, `gh repo set-default --view`). Confirm with the user before each push.
 
 ```
 git push -u <remote> <branch>
-gh pr create --draft --base <base> --head <branch> --title "<title>" --body-file <file>
+gh pr create --draft --base <base> --head <branch> --title "<title>" --body-file <scratchpad file>
 ```
 
-Write the body to a file in the scratchpad and pass `--body-file`. Confirm with the user before each push. Return the PR URL.
+Return the PR URL.
+
+## Editing an existing PR
+
+1. Save the live body with `gh pr view <n> --json body -q .body > <scratchpad>/pr-<n>.md` and edit that file.
+2. Show the user only the changed parts, as a reader will see them, and wait for a yes.
+3. Post with `gh pr edit <n> --body-file <file>`, read it back with `gh pr view`, and diff it against the file.
+4. In a stack, grep the other PRs' bodies for the text you changed and fix them the same way.
 
 ## Title
 
-Use the repo's convention. Find it with `gh pr list --state merged --limit 5 --json title`. If there is none, use conventional-commit style: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`. This is broader on purpose than commit subjects, which are limited to `feat`/`fix`/`chore` (see the `commit-push` skill) - a PR may bundle a refactor or docs change its individual commits could not be named after. Lowercase, no period, under 70 characters, says what the PR does.
+The repo's convention (`gh pr list --state merged --limit 5 --json title`), else conventional-commit style: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:` (broader than commit subjects, since a PR may bundle a refactor or docs change). Lowercase, no period, under 70 characters, says what the PR does.
 
 ## Body
 
-Find the template: `.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_request_template.md`, `docs/`, the repo root, or a `PULL_REQUEST_TEMPLATE/` directory (if several, ask which). Use its headings in its order. Delete a section only if it is empty.
+Use the repo's template (`.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_request_template.md`, `docs/`, the repo root or `PULL_REQUEST_TEMPLATE/`; ask if several): its headings in order, deleting a section only if it is empty. Without a template, use `## Summary`, `## Changes`, `## Validation / Examples`. With one, examples go in an `### Examples` subsection at the end of Changes. Add no other sections.
 
-If there is no template, use:
+- **Ticket:** the key from the branch name, or ask. If there is none, offer to create one with any ticketing skill if available (e.g. `jira`) before opening, and write "None filed." if the user declines.
+- **Documentation:** paths of the docs updated.
+- **Checklist:** only if the template has one. Check a box only if true; otherwise leave it unchecked with a one-line reason.
 
-```
-## Summary
-## Changes
-## Validation / Examples
-```
+### Writing rules
 
-With a template, Validation / Examples becomes an `### Examples` subsection at the end of Changes, so the example rules below apply there. A subsection of Changes is not an extra section.
+- Every claim about the system comes from the diff, the code or facts the user gave; cut anything else. Describe only the pushed diff, never local files or state.
+- Follow the `create` style pass: answer first, no recap, no emdashes, no emojis, fewest words. One line per paragraph or bullet; only code blocks keep line breaks.
+- Write "on `main`", never with a date. Date only events (an incident range, a log line). Never "today", "now" or "currently".
+- Link PRs as #NN; ticket keys only in the body. Read `blob/<default>` line numbers from the base repo, not `origin`: `git fetch <remote> <default>`, then `git show <remote>/<default>:<path>`. Link code that is not on the default branch yet on the PR's branch.
+- No attribution, no mention of the AI model or tool, and no sentence about what was not done, run, changed or shown.
+- Say each fact once. The failure is described only in the Summary's Problem.
 
-Template-only sections: Ticket (the key from the branch name, or ask; "None filed." if none) and Documentation (paths of the docs updated).
+### Summary
 
-## Rules
+These four parts, in this order, and nothing else.
 
-Check every rule against the body before showing it.
-
-1. Never add sections beyond the template's or the fallback's. An `### Examples` subsection inside Changes is allowed.
-2. Describe only the pushed diff; no local files, scripts or state.
-3. Tone and length follow the system prompt's style rules and the
-   `create` style pass: answer first, no recap, no emdashes, no emojis,
-   fewest words.
-4. No attribution line; no mention of the AI model or tool.
-5. Link PRs as #NN. Ticket keys only in the body, never in code or docs.
-6. The Summary section is built in this order, and nothing else:
-   a. **Summary sentence.** Up to about 150 characters. Says only what
-      the PR changes.
-   b. **Key terms.** A list of 3-5 words the Changes lean on that a
-      newcomer could misread ("field", "handler", "context"). One line
-      each, defined with example code, not prose: what it is, shown in
-      existing code (link on the default branch), and, where the stack's
-      goal depends on it, why it matters (what goes wrong today without
-      it). A term that only restates its name has failed. No length cap.
-   c. **Relevance statement.** Only if the PR adds a component meant to
-      be used by current code or a later PR in the stack. One sentence,
-      as its own paragraph, that shows how existing code would use the
-      component. It has: a link to the existing code that would change
-      (`blob/<default>/...`, not a commit SHA; on the PR's branch if the
-      code is not on the default branch yet), the one-line call, a short
-      parenthetical on how that code works now (what runs through it,
-      which components), and when the change lands: "(next PR, in #NN)",
-      "(previous PR, in #NN)", "(later, in #NN)" or "(in this PR)". Check
-      the claim against the code first. Aim for about 100 characters; go
-      past that when the link, call and timing need it. If it is too
-      long, shorten the summary sentence first, then trim words. Skip the
-      statement only if it still says nothing a reader could not get from
-      the summary.
-   d. **Current behavior, before these changes.** What happens today, with
-      a multi-line example. Never in Changes or Examples. No length cap.
-   Count characters on rendered text: link text counts, the URL, the
-   backticks and the bold markers do not.
-7. Changes has one short bullet per change a reviewer cannot see from the
-   diff, naming the function, flag, env var or file in backticks. Say why
-   only where it is not obvious.
-   Write each bullet for a reader with no editor or LSP: no unexplained
-   terms ("later field", "the record's own"), no code-internal jargon. If a
-   bullet describes a rule, precedence, ordering or edge case, show it in
-   `### Examples` with a short code snippet and its real output. Point to
-   it by bolded name, never by number: `see **"Replaced field"** example below`, so a reader
-   can find it with a text search. With only a few examples, "example(s)
-   below" is enough. Name each example with a bold label. A bullet that needs the diff open to
-   understand has failed.
-   Each bullet carries a relevance justifier: a few words or an
-   example showing why the change matters to existing code, so the reader
-   needs no editor to see it.
-   Keep the bullet itself short: state what the thing is or does and let
-   the example carry the detail (precedence, overwriting, ordering).
-8. Changes skips renames, moves, file lists, comment updates and other
-   follow-on edits. Group a move or refactor into one bullet.
-9. Docs updated to match the code are one bullet: "Updated `<file>` to
-   match." If the docs add something beyond the code change, state its
-   effect in one short sentence.
-10. Breaking changes go under Changes, with who is affected.
-11. Validation / Examples is very concise: Before and After labels,
-    always, unless the change adds output with no prior equivalent. Each
-    has a multi-line fenced code block (command and output, or the value
-    or config that changed). Multi-line wins over fewest words: expand
-    compact JSON to indented form, one field per line, even when short.
-    Show only what was actually run. For a new API, show the call (Go, shell,
-    etc.) and its output, one example per rule a bullet states.
-12. Never list what was not done, run or changed.
-13. A checklist only if the template has one. Check a box only if true;
-    otherwise leave it unchecked with a one-line reason.
-14. Do not hard-wrap prose: one line per paragraph or bullet. Only code
-    blocks keep their own line breaks.
-
-## Example
-
-A correctly formatted Before/After block:
+**1. Problem**, for a reader who has never opened the repo. Fill in:
 
 ````
-Before:
-```json
-{
-  "msg": "http request",
-  "method": "POST",
-  "status": 200
-}
+<What goes wrong today, in plain words. Name only the data file the problem is about: no source files, classes or methods.>
+
+```
+<picture of the data shape (folder, payload, table), with at least two `<-` markers: one on what the code uses today, one on what it misses or gets wrong>
 ```
 
-After:
-```json
-{
-  "msg": "http request",
-  "service.name": "orders.api",
-  "method": "POST",
-  "status": 200
-}
-```
+<What happens next, in plain words.> <Only if the facts give a number: "In Prod, this behavior was observed in N <things> between <date> and <date>."> This PR <what it adds or changes, naming the main function or flag once>. <If this PR alone does not change the behavior, which PR does.>
 ````
+
+Leave out the picture only if the problem has no data shape. If the text names several affected code paths, say which PR changes each one.
+
+Example (another repo, to show the form only):
+
+````
+When two tenants request the same report on the same day, the second tenant gets the first tenant's cached copy. The cache after both requests:
+
+```
+report-cache/
+├── 2026-03-02/sales.pdf    <- written for tenant A, then read by tenant B
+└── (no entry for B)        <- what tenant B should have read
+```
+
+Tenant B sees another tenant's numbers until the entry expires 24 hours later. In Prod, this behavior was observed in 12 reports between 2026-02-20 and 2026-03-02. This PR adds the tenant id to the cache key in `ReportCache.keyFor`.
+````
+
+Check: the first sentence names no code; the picture has two `<-` markers; the PR's own function or flag appears only in the last sentences.
+
+**2. Key terms**, under the standalone bold label `**Key terms to keep in context while reading this PR**` (not a heading). 2-4 lines: the Problem's terms in the order they appear there, then at least one for the mechanism this PR adds or changes. Each line:
+
+```
+- **<name a person would say>** ([`<CodeName>`](<link>)): <what it is, plain words>. <why the reader needs it to follow this PR>.
+```
+
+Example (same other repo; "Cache key" is the mechanism the PR changes):
+
+```
+- **Report cache** ([`ReportCache`](https://github.com/example/reports/blob/main/src/ReportCache.java#L20)): keeps each generated report for 24 hours so a repeat request skips generation. Only how entries are named changes here, not how long they are kept.
+- **Cache key** ([`ReportCache.keyFor`](https://github.com/example/reports/blob/main/src/ReportCache.java#L41)): the path an entry is stored under, e.g. `2026-03-02/sales.pdf`. This PR changes what goes into this path.
+```
+
+If no class or field is the thing itself (a folder, a request), link the first code that receives it and say so: `([passed to `getDirectory`](<link>))`.
+
+Check each line: the bold name is an ordinary phrase, not a file, class or method name; the link opens on the line that defines `<CodeName>` (read that line); each claim in `<what it is>` has a code line or fact behind it; the last sentence does not restate the failure.
+
+**3. Relevance statement**, only if the PR adds something current code or a later PR will use. One sentence, as its own paragraph: a link to the code that would change, the one-line call, a short parenthetical on how that code works now, and when it lands: "(next PR, in #NN)", "(previous PR, in #NN)", "(later, in #NN)" or "(in this PR)". Check it against the code.
+
+**4. Current behavior, before these changes.** Real captured output that shows the Problem (a log, a response, or a command and its output), after one line saying where it came from, e.g. "Stage worker log, one event appended to the folder above". Never constructed values.
+
+### Changes
+
+- One bullet per change a reviewer cannot see from the diff, naming the function, flag, env var or file in backticks. At most 2 sentences: what the change is, and where. Nothing the Summary already said, no mechanics the diff shows.
+- Skip renames, moves, file lists and comment updates; group a refactor into one bullet. Docs updated to match are one bullet, "Updated `<file>` to match.", plus one sentence on anything they add.
+- Breaking changes say who is affected.
+- A rule, precedence, ordering or edge case gets an example, pointed to by bold name: `see **"Replaced field"** example below`.
+- No unexplained terms ("later field", "the record's own").
+
+### Examples
+
+- Each opens with its bold name and one plain sentence: the situation, and why the result matters. Then a picture of the input (Summary style), then Before and After.
+- Before is the result existing code gives for the same input today. Leave it out only when there is no prior equivalent.
+- Captured output (logs, exceptions, responses, a command and its output) must come from a real run and goes in a multi-line fenced block; expand compact JSON to one field per line. When only a test shows the behavior, state the result in plain words.
+- Use real-looking data, never a test's values. A test can be the proof; don't quote it.
+- Every table or log names the symptom it shows. Do not repeat data the Summary shows.
 
 ## Before returning
 
+- Read the Summary and each example as someone who has never opened the repo: they can say what breaks, for whom, and what this PR changes. Rewrite any sentence whose subject is a class or method name.
+- Key terms have the bold label and 2-4 lines.
 - Every fenced block spans more than one line.
-- Before and After are both present, or the change adds new output.
-- No section outside the template or the fallback.
-- No attribution, model or tool mention.
-- No "not run", "not changed" or "not done" statements.
-- No hard-wrapped prose lines.
+- No section outside the template, no attribution, no "not run / changed / done / shown" sentence, no hard-wrapped prose.
+- Grep the body for `main` (20`, `today`, `now`, `currently` and fix each hit.
+- Nothing in the Summary is said again in Changes.
+
+## Final once-over
+
+1. Reread every sentence once as a reader, not against the checklist. Fix or cut any that is false for the example it sits in, says nothing new, contrasts with something that never happens ("instead of X" where X is not real), or stacks two parentheticals.
+2. If the harness can start a subagent, give a fresh one only the finished body (not the diff, the facts or this skill) and ask: "Which sentences are false, empty, or do not follow from what comes before? List problems only, most serious first, and leave out any sentence you conclude is fine. Quote each and say why." Check each finding against the code before changing anything.
