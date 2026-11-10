@@ -40,9 +40,9 @@ The repo's convention (`gh pr list --state merged --limit 5 --json title`), else
 
 ## Body
 
-Use the repo's template (`.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_request_template.md`, `docs/`, the repo root or `PULL_REQUEST_TEMPLATE/`; ask if several): its headings in order, deleting a section only if it is empty. Without a template, use `## Summary`, `## Changes`, `## Validation / Examples`. With one, examples go in an `### Examples` subsection at the end of Changes. Add no other sections.
+Use the repo's template (`.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_request_template.md`, `docs/`, the repo root or `PULL_REQUEST_TEMPLATE/`; ask if several): its headings in order, deleting a section only if it is empty. Without a template, use `## Summary`, `## Changes`, `## Validation / Examples`, with examples in `## Validation / Examples` after the checks. With one, examples go in an `### Examples` subsection at the end of Changes. Each check is listed with its command and result (`go test ./worker/...` passes). Add no other sections except the threshold chart section and `## Ticket` described below.
 
-- **Ticket:** the key from the branch name, or ask. If there is none, offer to create one with any ticketing skill if available (e.g. `jira`) before opening, and write "None filed." if the user declines.
+- **Ticket:** a final `## Ticket` section with only the linked key, taken from the branch name, or ask. If there is none, offer to create one with any ticketing skill if available (e.g. `jira`) before opening, and write "None filed." if the user declines.
 - **Documentation:** paths of the docs updated.
 - **Checklist:** only if the template has one. Check a box only if true; otherwise leave it unchecked with a one-line reason.
 
@@ -54,6 +54,8 @@ Use the repo's template (`.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_reque
 - Link PRs as #NN; ticket keys only in the body. Read `blob/<default>` line numbers from the base repo, not `origin`: `git fetch <remote> <default>`, then `git show <remote>/<default>:<path>`. Link code that is not on the default branch yet on the PR's branch.
 - No attribution, no mention of the AI model or tool, and no sentence about what was not done, run, changed or shown.
 - Say each fact once. The failure is described only in the Summary's Problem.
+- Draw with Mermaid, not ASCII art: a flow, loop or call order the PR changes gets a `flowchart` or `sequenceDiagram` (before and after) in Examples; a metric over time or a value that changes with an input gets an `xychart-beta`. Keep text trees with `<-` markers for data shapes.
+- Chart values come from real data (metrics, logs, a run) or the diff's formula, never invented. Scrub them first: no user or actor IDs, emails, account IDs, ARNs, hostnames or prod content; aggregate counts and rates are fine.
 
 ### Summary
 
@@ -104,9 +106,9 @@ Example (same other repo; "Cache key" is the mechanism the PR changes):
 
 If no class or field is the thing itself (a folder, a request), link the first code that receives it and say so: `([passed to `getDirectory`](<link>))`.
 
-Check each line: the bold name is an ordinary phrase, not a file, class or method name; the link opens on the line that defines `<CodeName>` (read that line); each claim in `<what it is>` has a code line or fact behind it; the last sentence does not restate the failure.
+Check each line: the bold name is an ordinary phrase, not a file, class or method name; the link opens on the line that defines `<CodeName>` with `#L<n>` (read that line; if the line is unknown, look it up or ask, never link a bare file), and no two terms share a link; each claim in `<what it is>` has a code line or fact behind it; the last sentence does not restate the failure.
 
-**3. Relevance statement**, only if the PR adds something current code or a later PR will use. One sentence, as its own paragraph: a link to the code that would change, the one-line call, a short parenthetical on how that code works now, and when it lands: "(next PR, in #NN)", "(previous PR, in #NN)", "(later, in #NN)" or "(in this PR)". Check it against the code.
+**3. Relevance statement**, only if the PR adds code that nothing calls yet, which existing code or another PR will call. Skip it when this PR's own diff is the caller. One sentence, as its own paragraph: a link to the code that would change, the one-line call, a short parenthetical on how that code works now, and when it lands: "(next PR, in #NN)", "(previous PR, in #NN)", "(later, in #NN)" or "(in this PR)". Check it against the code.
 
 **4. Current behavior, before these changes.** Real captured output that shows the Problem (a log, a response, or a command and its output), after one line saying where it came from, e.g. "Stage worker log, one event appended to the folder above". Never constructed values.
 
@@ -125,6 +127,7 @@ Check each line: the bold name is an ordinary phrase, not a file, class or metho
 - Captured output (logs, exceptions, responses, a command and its output) must come from a real run and goes in a multi-line fenced block; expand compact JSON to one field per line. When only a test shows the behavior, state the result in plain words.
 - Use real-looking data, never a test's values. A test can be the proof; don't quote it.
 - Every table or log names the symptom it shows. Do not repeat data the Summary shows.
+- A threshold that varies with an input (traffic, size) gets a `## <Threshold> by <input>` section before `## Validation / Examples`, holding a Mermaid `xychart-beta` chart: one `line` per rule (before, after), values computed from the formula, x-axis labels like "100", "1k", "10k" for a log scale, and a sentence above naming each line (no legend).
 
 ## Before returning
 
