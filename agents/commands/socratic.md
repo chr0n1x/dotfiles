@@ -1,6 +1,6 @@
 ---
 name: socratic
-description: Help the user find the right design for a problem by asking questions, not by giving a solution. Splits the user's statement into parts, researches each part (the code, outside documentation, the team's record), reads it back for correction, then asks one question at a time, naming the design patterns each answer points toward or away from. Before the menu, fresh subagents try to break the direction the user reached, and each break becomes a question. Never ranks options or picks one unless asked.
+description: Help the user find the right design for a problem by asking questions, not by giving a solution. Splits the user's statement into parts, researches each part (the code, outside documentation, the team's record), reads it back for correction, then asks one question at a time, naming the design patterns each answer points toward or away from. Before the menu, fresh subagents try to break the direction the user reached, and each break that could change it becomes a question. Never ranks options or picks one unless asked.
 user-invocable: true
 argument-hint: "[quick] <the problem, in your own words>"
 allowed-tools: Bash(git:*), Bash(gh:*), Bash(mkdir:*), Bash(date:*), Read, Write, Grep, Glob, Task, Agent
@@ -289,8 +289,10 @@ Special turns:
   and what would change your mind. Then go back to asking.
 - **The user states a direction:** challenge it once. Say what must be true
   for it to work, one to three conditions with evidence and whether each holds
-  today (confirmed or hypothesis), and ask which they want to check. Do not
-  argue against it beyond that.
+  today (confirmed or hypothesis). Record each unconfirmed condition under
+  "Checks open" in `decisions.md` with its cheapest check and go on to the
+  next question; do not ask which to check. Run a check only when the user
+  asks for one. Do not argue against the direction beyond that.
 - **An answer contradicts the evidence:** say so, show the evidence, and ask
   whether it is stale.
 - **A fact gap opens:** launch one targeted read-only subagent, say so, and
@@ -351,11 +353,26 @@ Each returns:
   with its cheapest check.
 
 Check every `file:line`, drop breaks that do not hold, merge duplicates, and
-write the rest to `breaks.md`. Then ask the user about each break, one at a
-time, in the step 5 form, and record the answers in `decisions.md`. A break
-is evidence, not a recommendation: do not propose the fix. If an answer
-changes the direction, update `direction.md` and rerun only the subagent
-whose area changed.
+write the rest to `breaks.md`. Then mark each one in `breaks.md`:
+
+- **Ask:** it violates a user rule in a way their answers and stated
+  tolerances do not already cover, and an answer could change who reads or
+  writes what, or in what order.
+- **List:** everything else: a case a stated tolerance already accepts
+  (quote it), an operational or deploy concern that leaves the direction as
+  it is, or a fact only a check can settle (record it under "Checks open").
+
+Ask about each "Ask" break, one at a time, in the step 5 form, and record the
+answers in `decisions.md`. Then show the "List" breaks in one turn, one line
+each with why it is listed, and ask once whether any should be asked about;
+record the rest as "open". A break is evidence, not a recommendation: do not
+propose the fix.
+
+After the last answer, if any answer changed the direction, update
+`direction.md` and rerun only the subagents whose area changed. Do this once
+per run. In the second round, mark as "Ask" only breaks that are new (not a
+first-round break or an accepted tolerance restated); list the rest as above.
+Do not run a third round: record what is left as "open" and go to step 7.
 
 In quick mode, do the three checks yourself and say that no fresh reader ran
 them.
