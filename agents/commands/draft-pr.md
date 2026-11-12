@@ -54,6 +54,21 @@ Use the repo's template (`.github/PULL_REQUEST_TEMPLATE.md`, `.github/pull_reque
 - Link PRs as #NN; ticket keys only in the body. Read `blob/<default>` line numbers from the base repo, not `origin`: `git fetch <remote> <default>`, then `git show <remote>/<default>:<path>`. Link code that is not on the default branch yet on the PR's branch.
 - No attribution, no mention of the AI model or tool, and no sentence about what was not done, run, changed or shown.
 - Say each fact once. The failure is described only in the Summary's Problem.
+- Every Mermaid `xychart-beta` names each `line`/`bar` series (GitHub draws the names as the legend) and sets fixed colors with `plotColorPalette`:
+
+  ````
+  ```mermaid
+  ---
+  config:
+    themeVariables:
+      xyChart:
+        plotColorPalette: "#1f77b4, #ff7f0e"
+  ---
+  xychart-beta
+      line "After" [5.0, 2.2, 1.1]
+      line "Before" [5.0, 0.8, 0.5]
+  ```
+  ````
 - Draw with Mermaid, not ASCII art: a flow, loop or call order the PR changes gets a `flowchart` or `sequenceDiagram` (before and after) in Examples; a metric over time or a value that changes with an input gets an `xychart-beta`. Keep text trees with `<-` markers for data shapes.
 - Chart values come from real data (metrics, logs, a run) or the diff's formula, never invented. Scrub them first: no user or actor IDs, emails, account IDs, ARNs, hostnames or prod content; aggregate counts and rates are fine.
 
@@ -127,7 +142,7 @@ Check each line: the bold name is an ordinary phrase, not a file, class or metho
 - Captured output (logs, exceptions, responses, a command and its output) must come from a real run and goes in a multi-line fenced block; expand compact JSON to one field per line. When only a test shows the behavior, state the result in plain words.
 - Use real-looking data, never a test's values. A test can be the proof; don't quote it.
 - Every table or log names the symptom it shows. Do not repeat data the Summary shows.
-- A threshold that varies with an input (traffic, size) gets a `## <Threshold> by <input>` section before `## Validation / Examples`, holding a Mermaid `xychart-beta` chart: one `line` per rule (before, after), values computed from the formula, x-axis labels like "100", "1k", "10k" for a log scale, and a sentence above naming each line (no legend).
+- A threshold that varies with an input (traffic, size) gets a `## <Threshold> by <input>` section before `## Validation / Examples`, holding a Mermaid `xychart-beta` chart: one `line` per rule (before, after), values computed from the formula, x-axis labels like "100", "1k", "10k" for a log scale, and a sentence above naming each line.
 
 ## Before returning
 
