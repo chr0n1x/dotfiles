@@ -1,3 +1,4 @@
+local ok_memory, err_memory = pcall(require, "agent_memory")
 -- Global maki config. maki loads the first init.lua it finds across
 -- ~/.maki and ~/.config/maki and stops; subdirectories are not discovered,
 -- so each customization is required here. `require` in a config init.lua
@@ -16,11 +17,6 @@ end
 local ok_jump, err_jump = pcall(require, "edit-jump-nvim")
 if not ok_jump then
   maki.log.warn("edit-jump-nvim: " .. tostring(err_jump))
-end
-
-local ok_task, err_task = pcall(require, "maki_task")
-if not ok_task then
-  maki.log.warn("maki_task: " .. tostring(err_task))
 end
 
 maki.setup({
