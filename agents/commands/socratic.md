@@ -49,7 +49,13 @@ Rules for the whole session:
 - You coordinate subagents and are the only writer. Subagents are read-only,
   return text, and cannot ask the user anything.
 - Ask with the harness's interactive question tool if it has one; otherwise in
-  plain text, then stop and wait.
+  plain text, then stop and wait. The tool's dialog can hide everything else
+  you wrote that turn, so each question in it stands alone: the question, why
+  it matters and what the code does now, in its own text, with options that
+  need no outside context. The readback and the menu are plain text, never
+  inside a dialog. If the user rejects a dialog or says it was not shown, ask
+  in plain text for the rest of the session, and never count a rejected
+  dialog's selected option as an answer.
 
 ## Modes
 
