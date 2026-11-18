@@ -44,6 +44,13 @@ Defaults - deviate only with stated reason.
   you do.
 - Pause and ask for help/clarification when stuck,
   especially if in a loop.
+- If goflect memory tools are available, search goflect before
+  guessing when a request, tool, credential or convention is
+  unclear. When going in circles with the user (the same step
+  failing twice, a second correction on one point, or visible
+  frustration), search again for that topic. If no in-scope memory
+  covers it, say so ("no in-scope memory covers X") and offer to
+  save one. A failed search is an error, not "no memory".
 - Before writing code, prefer in order: omit, stdlib,
   native, installed packages, custom code.
 - 3+ files or structural changes: create a task/todo list
