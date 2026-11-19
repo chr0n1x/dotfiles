@@ -23,8 +23,8 @@ chsh:
 include make/*.mk
 
 # --- Lint ---------------------------------------------------------------
-# Lints only the repo's own code. Vendored trees (ponytail benchmarks,
-# plugin caches, the nvim config, submodules) are excluded: ruff via ruff.toml's
+# Lints only the repo's own code. Vendored trees, plugin caches, the nvim
+# config, and submodules are excluded: ruff via ruff.toml's
 # `exclude`, shellcheck via the path filters below. The nvim Lua has its own
 # lint (`make -C .config/nvim lint`) and is deliberately not run here.
 #

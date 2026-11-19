@@ -4,9 +4,6 @@
 [submodule ".tmux/plugins/tpm"]
 	path = .tmux/plugins/tpm
 	url = git@github.com:tmux-plugins/tpm.git
-[submodule ".claude/plugins/ponytail"]
-	path = .claude/plugins/ponytail
-	url = https://github.com/DietrichGebert/ponytail.git
 [submodule ".claude/plugins/noodle"]
 	path = agents/tools/noodle
 	url = https://github.com/chr0n1x/noodle

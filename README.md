@@ -6,8 +6,8 @@ A personal dotfiles collection managed with `stow`. Easy to set up and extend.
 Agents working in this repo: read `AGENTS.md` (behavioral rules, tests, lint)
 and `STRUCTURE.md` (submodules, vendored plugins, symlink map, git gates).
 Agent skills and commands live in `agents/` (every harness links into it);
-vendored skill repos live in `.claude/plugins/` (ponytail) and `agents/tools/`
-(noodle) - see the `AGENTS.md` in each.
+vendored skill repos live in `agents/tools/` (noodle) - see
+`agents/tools/AGENTS.md`.
 
 If you just want to run `nvim` though I highly recommend that you take a look at [my NeoVim starter template](https://github.com/chr0n1x/neovim-template) to begin your NeoVim journey 🥳
 

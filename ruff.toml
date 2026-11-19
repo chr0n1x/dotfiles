@@ -1,7 +1,7 @@
 # Ruff config for the dotfiles repo's own Python. The repo is mostly Neovim
 # Lua + shell; Python lives in the tmux agent picker (and its tests). Lint that
-# via `make lint`, which reads this file. Vendored plugin trees (ponytail
-# benchmarks, .test-cache, submodules) are excluded below.
+# via `make lint`, which reads this file. Vendored plugin trees, .test-cache,
+# and submodules are excluded below.
 
 # Target a recent 3.x: the picker runs under `python3` on macOS (3.9+) and
 # Linux. Newer syntax is fine.
@@ -11,9 +11,9 @@ target-version = "py39"
 # wall.
 line-length = 120
 
-# Only our own Python is in scope. Everything else - vendored plugin trees,
-# the ponytail benchmark harness, plugin caches, submodules, the nvim config -
-# is excluded. (ruff's `exclude` is a top-level list of globs.)
+# Only our own Python is in scope. Vendored plugin trees, plugin caches,
+# submodules, and the nvim config are excluded.
+# Ruff's `exclude` is a top-level list of globs.
 exclude = [
     ".config/nvim",
     ".config/tmux/plugins",

@@ -55,8 +55,7 @@ not as command files here.
 
 ## Vendored plugins
 
-External skill repos are vendored as submodules and exposed via symlinks in
-`agents/skills/`: ponytail stays in `.claude/plugins/` (see
-`.claude/plugins/AGENTS.md`), noodle lives in `agents/tools/` (see
-`agents/tools/AGENTS.md`). Submodule mechanics: `STRUCTURE.md`. Read the
-relevant AGENTS.md before adding, removing, or relinking any plugin skill.
+External skill repos are vendored as submodules in `agents/tools/` and
+exposed via symlinks in `agents/skills/`. See `agents/tools/AGENTS.md` for
+noodle and `STRUCTURE.md` for submodule mechanics. Read the relevant
+AGENTS.md before adding, removing, or relinking any plugin skill.
