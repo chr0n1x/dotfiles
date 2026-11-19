@@ -25,10 +25,9 @@ re-embedding pass as long as memory text stays byte-identical.
 - memories scoped to directories or projects - those belong to their repos,
   not this seed;
 - memories naming the user or their local files (git identity, tests-first);
-- non-anchor example memories. Several seeded bodies therefore cite short
-  IDs that resolve only on machines that also hold those examples
-  (`9da24bb3`, `f6a7e684`, `532bc365`, `3ce98e3e`, `5d78c24a`) - the
-  citations are fetch signals, dangling is harmless.
+- the memory citing host-local process topology - directory-scoped and it
+  names machine ports; where an anchor cites that ID the citation dangles
+  by design.
 
 ## regenerate
 
@@ -46,6 +45,11 @@ jq --slurpfile ids ids.json '
       | .vectors |= with_entries(select(.key as $k | $ids[0] | index($k)))
       | select(.vectors != {})]' all.json > seed.json
 ```
+
+Then resolve references: collect ID-shaped tokens from the kept bodies,
+and add back every cited memory that is globally scoped and free of
+identity data, carrying its vectors along - the anchors' fetch signals
+should resolve inside the seed.
 
 Then re-check seed.json for identity leaks - grep for the tokens the
 excluded memories name: real name, email, usernames, hostnames, home
