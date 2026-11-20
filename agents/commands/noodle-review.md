@@ -330,21 +330,21 @@ after a rework. Ask again only if the target is gone.
   Drop this process's own terminal (`vim.env.NVIM` match plus `$PPID` ancestry via
   `vim.fn.jobpid(chan)`) when it can be identified; if not, list it and say so. A
   buffer id goes stale when a terminal restarts; look it up again before sending.
-- **tmux panes** (when `$TMUX` is set; load `tmux-ctrl`):
+- **tmux panes** (when `tmux list-sessions` succeeds; load `tmux-ctrl`):
 
   ```bash
   tmux list-panes -a -F '#{pane_id} #{session_name}:#{window_name} #{pane_current_command} #{pane_title}'
   ```
 
   Exclude `$TMUX_PANE`.
-- **New tmux window with a named CLI:** offered when `$TMUX` is set. The user
-  names the CLI; do not suggest one. Check `command -v <cli>`; if missing, say so
+- **New tmux window with a named CLI:** offered when `tmux list-sessions`
+  succeeds. The user names the CLI; do not suggest one. Check `command -v <cli>`; if missing, say so
   and ask again. Do not install anything.
 - **This session:** always offered. If the user picks it ("you take it"), send
   nothing: read the prompt file and do the review yourself in the held stage's
   worktree under the Step 6 rules, then continue at Step 7.
 
-With neither `$NVIM` nor `$TMUX`, offer only this session; if declined, print each
+With no `$NVIM` and no tmux server, offer only this session; if declined, print each
 `prompt_file` path for the user to run by hand, and stop.
 
 ## Step 6: Send

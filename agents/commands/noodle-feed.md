@@ -194,8 +194,9 @@ start the loop, start a bootstrap process or seed anything yourself.
 
 Otherwise ask whether to run `noodle start` now. On no, stop. On yes:
 
-1. If `$TMUX` is set, load `tmux-ctrl` and open a full-height pane on the left at
-   20% width in the project dir, keeping a shell after the loop exits:
+1. If `tmux list-sessions` succeeds, load `tmux-ctrl` and open a full-height pane
+   on the left at 20% width in the project dir, keeping a shell after the loop
+   exits:
 
    ```bash
    tmux split-window -fhb -l 20% -P -F '#{pane_id}' -c "$TARGET" \
@@ -203,7 +204,7 @@ Otherwise ask whether to run `noodle start` now. On no, stop. On yes:
      'noodle start; echo "[noodle exited $?]"; exec $SHELL'
    ```
 
-   Remember the pane id. Without `$TMUX`, give the user the command
+   Remember the pane id. Without a tmux server, give the user the command
    (`NOODLE_PROJECT_DIR=<absolute $TARGET> noodle start`, run from `$TARGET`);
    do not background it from the agent's shell. `NOODLE_PROJECT_DIR` must be the
    absolute path of the directory holding `.noodle.toml` and `.noodle/`, never a

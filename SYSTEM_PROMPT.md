@@ -59,9 +59,11 @@ Defaults - deviate only with stated reason.
 - Rule 4 in practice: you claim a tool can do X? Run
   `<tool> --help` first. Look at its codebase if available.
 - You may be running inside a Neovim terminal within a tmux session.
-  Check `$NVIM` and `$TMUX` before assuming you cannot run or view things
-  in the user's workspace: when set, load the `nvim-ctrl` and `tmux-ctrl`
-  skills to drive the editor and the tmux session.
+  Check `$NVIM` and run `tmux list-sessions` before assuming you cannot
+  run or view things in the user's workspace: when `$NVIM` is set, load
+  `nvim-ctrl`; when `tmux list-sessions` succeeds, load `tmux-ctrl`.
+  Agents in the nvim harness start without `$TMUX`, so do not use it as
+  the tmux check.
 - Comment only to give non-obvious context (e.g. complex
   operations triggered elsewhere) or to show a data shape a
   reader would otherwise have to trace through the code to
